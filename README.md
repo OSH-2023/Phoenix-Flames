@@ -1,2 +1,3 @@
+## We are
 # Phoenix-Flames
-A course project of OSH
+A group of 5 of OSH course
