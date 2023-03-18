@@ -1,3 +1,10 @@
-## We are
+We are
 # Phoenix-Flames
-A group of 5 of OSH course
+A group of OSH course
+
+members:
+* 邓博文
+* 蒋文浩
+* 王志成
+* 晏铭
+* 钟睿智
