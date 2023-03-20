@@ -18,11 +18,11 @@
 
 #### WowKiddy
 
-**Topic: distributed dataset platform **
+**Topic: distributed dataset platform**
 
 **Tags: `Distributed platform`, `JuiceFS`, `Frontend`**
 
-**Target: dataset platform for shared images and videos **
+**Target: dataset platform for shared images and videos**
 
 > Base&Reference:
 >
@@ -44,11 +44,11 @@
 
 #### Runikraft
 
-**Topic: unikernel **
+**Topic: unikernel**
 
 **Tags: `RISC-V`, `QEMU`, `microkernel`**
 
-**Target: Use Rust to rewrite unikernel and realize some specified functions **
+**Target: Use Rust to rewrite unikernel and realize some specified functions**
 
 > Base&Reference:
 >
@@ -92,7 +92,7 @@ Language: Rust
 
 **Tags: `VR`, `3D`, `Oculus`, `Remote Desktop`**
 
-**Target: **
+**Target:**
 
 > Base&Reference:
 >
@@ -174,7 +174,7 @@ language: Python, shell
 
 **Topic: 分布式系统的完善**
 
-**Tags: `x-DisGraFS`, `Distributed System`, `Monitor`, **
+**Tags: `x-DisGraFS`, `Distributed System`, `Monitor`**
 
 **Target: 优化DisGraFS**
 
