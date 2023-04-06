@@ -34,7 +34,7 @@
 
 而据我们调查，seL4 自身似乎并不支持虚拟内存（？）
 
-![](.\pics\Virtual_Memory.png)
+![](./pics/Virtual_Memory.png)
 
 
 
@@ -42,7 +42,7 @@
 
 #### VSpaces
 
-![](.\pics\VSpace_in_seL4.png)
+![](./pics/VSpace_in_seL4.png)
 
 ​		来源：[[t1-03-evancich.pdf (ieee.org)](http://secdev.ieee.org/wp-content/uploads/2020/11/t1-03-evancich.pdf)]
 
