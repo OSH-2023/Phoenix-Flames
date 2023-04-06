@@ -208,7 +208,7 @@ Different methods：
 
 > http://rcore-os.cn/rCore-Tutorial-Book-v3/chapter7/0intro.html
 >
-> [x-realism/2022.4.7 research-lly.md at main · OSH-2022/x-realism (github.com)](https://github.com/OSH-2022/x-realism/blob/main/reports/research/2022.4.7 research-lly.md)
+> [x-realism/2022.4.7 research-lly.md at main · OSH-2022/x-realism (github.com)](https://github.com/OSH-2022/x-realism/blob/main/reports/research/)
 >
 > https://en.wikipedia.org/wiki/L4_microkernel_family
 >
