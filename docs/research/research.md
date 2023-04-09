@@ -212,7 +212,7 @@ sel4采用可抢占的轮转调度。我们对sel4进程调度算法优化的可
 ###  2.4. <a name='-1'></a>虚拟内存
 
 **虚拟内存**指操作系统提供的逻辑内存。其将物理上离散的内存以及 分布在 Disk（低速） 与 RAM （高速）中的内存映射成逻辑上的**连续内存**。（Wiki）[[Virtual memory - Wikipedia](https://en.wikipedia.org/wiki/Virtual_memory)]()
-![](./Virtual_Memory.png)
+![](./pics/Virtual_Memory.png)
 
 而据我们调查，seL4 自身似乎并没有设计虚拟内存相关的功能。
 
@@ -226,7 +226,7 @@ sel4采用可抢占的轮转调度。我们对sel4进程调度算法优化的可
 
 ####  2.5.2. <a name='VSpaces'></a>VSpaces
 
-![](./VSpace_in_seL4.png)
+![](./pics/VSpace_in_seL4.png)
 
 ​		来源：[[t1-03-evancich.pdf (ieee.org)](http://secdev.ieee.org/wp-content/uploads/2020/11/t1-03-evancich.pdf)]
 
