@@ -1,33 +1,42 @@
 # Feasibility
 
-
 * 1. [理论依据](#)
-	* 1.1. [seL4](#seL4)
-	* 1.2. [Rust](#Rust)
-* 2. [技术依据](#-1)
-	* 2.1. [Rust重写sel4](#Rustsel4)
-		* 2.1.1. [rust的技术支持](#rust)
-		* 2.1.2. [生态系统](#-1)
-		* 2.1.3. [Rust的安全性](#Rust-1)
-		* 2.1.4. [Rust的适配性](#Rust-1)
-		* 2.1.5. [重写完毕后的测试依据](#-1)
-	* 2.2. [调度算法](#-1)
-		* 2.2.1. [sel4的实时性](#sel4)
-		* 2.2.2. [优化调度算法来提高sel4的实时性](#sel4-1)
-	* 2.3. [文件系统](#-1)
-		* 2.3.1. [运行用户态程序](#-1)
-		* 2.3.2. [虚拟化技术](#-1)
-* 3. [创新点](#-1)
-* 4. [概要设计报告](#-1)
-* 5. [SeL4初步配置与运行](#SeL4)
-	* 5.1. [配置情况](#-1)
-	* 5.2. [调试工具](#-1)
-		* 5.2.1. [sel4 debug lib](#sel4debuglib)
-	* 5.3. [测试和评测](#-1)
-		* 5.3.1. [主要工具](#-1)
-	* 5.4. [目录树分析](#-1)
-	* 5.5. [Reference](#Reference)
 
+    * 1.1. [seL4](#seL4)
+    * 1.2. [Rust](#Rust)
+
+* 2. [技术依据](#-1)
+
+    * 2.1. [Rust重写sel4](#Rustsel4)
+        * 2.1.1. [rust的技术支持](#rust)
+        * 2.1.2. [生态系统](#-1)
+        * 2.1.3. [Rust的安全性](#Rust-1)
+        * 2.1.4. [Rust的适配性](#Rust-1)
+        * 2.1.5. [重写完毕后的测试依据](#-1)
+    * 2.2. [调度算法](#-1)
+        * 2.2.1. [sel4的实时性](#sel4)
+        * 2.2.2. [优化调度算法来提高sel4的实时性](#sel4-1)
+    * 2.3. [文件系统](#-1)
+        * 2.3.1. [运行用户态程序](#-1)
+        * 2.3.2. [虚拟化技术](#-1)
+    * 2.4. [进程通讯](#-1)
+        * 2.4.1. [`SeL4`的处理](#SeL4)
+        * 2.4.2. [利用`SeL4`在进程通讯上的优势](#SeL4-1)
+
+* 3. [创新点](#-1)
+
+* 4. [概要设计报告](#-1)
+
+* 5. [SeL4初步配置与运行](#SeL4-1)
+
+    * 5.1. [配置情况](#-1)
+    * 5.2. [调试工具](#-1)
+        * 5.2.1. [sel4 debug lib](#sel4debuglib)
+    * 5.3. [测试和评测](#-1)
+        * 5.3.1. [主要工具](#-1)
+    * 5.4. [目录树分析](#-1)
+
+* 6. [Reference](#Reference)
 
 ##  1. <a name=''></a>理论依据
 
@@ -50,7 +59,9 @@ Rust是一种安全、高性能、并发、可读性强的系统级编程语言�
 
 
 ##  2. <a name='-1'></a>技术依据
+
 ###  2.1. <a name='Rustsel4'></a>Rust重写sel4
+
 ####  2.1.1. <a name='rust'></a>rust的技术支持
 
 跨平台、有活跃社区和丰富生态系统
@@ -64,6 +75,7 @@ Rust的生态系统非常活跃，有大量的开源库和工具可用于各种�
 社区：Rust有一个活跃的社区，拥有众多的贡献者和开发者。社区提供了大量的文档、教程和交流渠道，以帮助新用户学习和使用Rust。
 
 ####  2.1.3. <a name='Rust-1'></a>Rust的安全性
+
 在改写sel4的过程中，Rust的安全性体现在两个方面：
 
 + 内存安全性：Rust使用所有权系统、借用检查器等特性来保证内存的安全性。在改写sel4时，采用了Rust的语言特性，对代码进行了严格的内存安全检查，避免了系统漏洞的出现。
@@ -72,6 +84,7 @@ Rust的生态系统非常活跃，有大量的开源库和工具可用于各种�
 综上所述，Rust在改写sel4的过程中通过提供内存安全性和并发安全性的特性，保障了sel4的安全性和稳定性，提高了其可信度和可用性。
 
 ####  2.1.4. <a name='Rust-1'></a>Rust的适配性
+
 在Rust中，可以使用Rust提供的ffi（Foreign Function Interface）来调用C语言函数。要调用C函数，需要进行以下步骤：
 在Rust中导入libc库，这个库包含了许多C标准库函数的声明。
 
@@ -87,7 +100,9 @@ extern "C" {
     fn foo(arg1: c_int, arg2: *const c_char) -> c_int;
 }
 ```
+
 在Rust中调用C函数，可以使用unsafe代码块：
+
 ```
 Rust
 unsafe {
@@ -99,10 +114,12 @@ unsafe {
 在这个例子中，我们调用了函数foo，传递了两个参数（一个整数和一个字符串）并打印了返回值并使用了as_ptr()方法将Rust字符串转换为C字符串。需要注意的是，调用C函数时必须使用unsafe代码块，因为C函数可能会修改程序的内存。如果不使用unsafe代码块，编译器将会报错。同时，也需要注意处理类型转换和内存管理，以避免出现安全漏洞。
 
 ####  2.1.5. <a name='-1'></a>重写完毕后的测试依据 
+
 seL4官网上给出了使用qemu进行模拟的内核功能测试方法和测试包。通过替换kernel.elf文件可以对各种内核进行功能测试。
     
 
 ###  2.2. <a name='-1'></a>调度算法
+
 ####  2.2.1. <a name='sel4'></a>sel4的实时性
 
 seL4本身的设计目的是用于安全和实时系统的微内核操作系统。它本身已经具有一些实时特性，但是可以采取以下措施来进一步增强其实时性能：
@@ -130,13 +147,17 @@ seL4本身的设计目的是用于安全和实时系统的微内核操作系统�
 + 避免不必要的上下文切换：上下文切换是操作系统中的开销之一，可以通过避免不必要的上下文切换来提高实时  性能。例如，可以使用抢占式调度来避免无效的上下文切换。
 
 ###  2.3. <a name='-1'></a>文件系统
+
 目前，sel4本身是不具备文件系统的，但是可以通过在sel4中运行用户态程序或者通过虚拟化技术来实现外接文件系统。下面分别介绍一下这两种方式。
+
 ####  2.3.1. <a name='-1'></a>运行用户态程序
+
 在sel4中，可以通过运行用户态程序来实现对外接文件系统的访问。开发者可以编写一个或多个用户态程序，这些程序可以通过IPC或其他机制与sel4内核通信，从而实现对外接文件系统的访问。
 
 这种方式需要开发者具有熟练的用户态程序编写能力，并且需要为每个文件系统格式编写相应的用户态程序。虽然这种方式相对比较简单，但是存在风险，因为用户态程序可能会访问系统内的敏感数据和资源，从而对系统安全性造成威胁。
 
 ####  2.3.2. <a name='-1'></a>虚拟化技术
+
 另外一种实现外接文件系统访问的方式是通过虚拟化技术来实现。可以在sel4上运行虚拟机，然后在虚拟机中运行带有所需文件系统的操作系统。这种方式可以支持多种文件系统格式，并能确保文件系统和操作系统在虚拟环境中运行，不会对sel4的安全性造成威胁。
 
 需要注意的是，这种方式需要虚拟化技术的支持，因此需要使用支持虚拟化的硬件平台来运行sel4内核。同时，还需要考虑到虚拟化带来的性能损失和额外的开销等问题。
@@ -152,6 +173,37 @@ seL4本身的设计目的是用于安全和实时系统的微内核操作系统�
 3. 修改seL4构建配置，以便在映像中包含文件系统实现,可以通过在Kconfig文件中添加适当的配置选项来实现这一点。
 4. 编写一个文件系统驱动程序，实现与文件系统接口所需的系统调用。驱动程序应该处理文件和目录操作以及任何其他必要的功能，如装载和卸载。
 5. 构建包含文件系统代码和驱动程序的seL4映像，并将其部署到目标系统。
+
+
+
+###  2.4. <a name='-1'></a>进程通讯
+
+####  2.4.1. <a name='SeL4'></a>`SeL4`的处理
+
+在`SeL4`中，使用内核提供的数据结构端点（`endpoint`）进行通讯，在功能上取代了`linux`中的`pipe`与`signal`等多种机制。
+
+`SeL4`中的端点可以看作一个通用的交互端口，由一个线程队列组成，他们一起等待发送或接收，当一个队列在等待信息时，如果其中一个在端点发送一条信息，所有的等待中线程都接收到并被唤醒；如果此时另一个发送者又发送了一条信息，那么它将被移到等待队列。这样，`endpoint`就成为了一个公用的媒介，可以拥有不限数量的发送者与接收者。
+
+`SeL4`为每个线程都维护了一个`IPC buffer`，包含了IPC消息的有效负载，比如数据内容和`capability`。发送者需要指定信息的大小（长度），IPC缓冲区每条消息最多可以传输120字节的数据和4种功能，这样操作系统在进行通讯时便可以将此信息从`Sender`的`buffer` copy 到`Receiver`的`buffer` 。对于短小的消息，可以直接通过消息寄存器`MR`传递，每一个`MR`都是机器字大小，即计算机进行一次整数运算所能处理的二进制数据的位数，这样就节省了copy的操作。
+
+`SeL4`中发送消息使用系统调用`seL_Send`，在其信息被其他线程接收前将被阻塞。另一个系统调用`seL4_NBSend`提供了轮询的方式。相似地，接收可以使用系统调用`seL4_Recv`与 `seL4_NBRecv` 。
+
+此外，SeL4的IPC还有快速路径的方法。快速路径是一条优化的代码路径，用于频繁的IPC操作，避免保存和恢复寄存器，从而并最小化缓存丢失。
+
+####  2.4.2. <a name='SeL4-1'></a>利用`SeL4`在进程通讯上的优势
+
+`SeL4`进程通讯在设计上的优势：
+
++ 允许在进程之间同步传输少量数据和功能，从而实现高效和安全的通信。
+
++ 通过`capability`支持细粒度的访问控制，这些功能是不可伪造的令牌，代表特权，可以委托，从而支持强安全性。
+
++ 支持`badge`(可以附加到`endpoint`的小整数，以区分来自不同客户机的请求），有助于实现需要识别或过滤消息的协议。
++ 快速路径可以最小化缓存丢失。
+
+基于`SeL4`自身具有的`IPC`优秀表现，目前我们打算沿用`SeL4`的设计，以达到进程间通讯的高效。
+
+
 
 ##  3. <a name='-1'></a>创新点
 
@@ -173,20 +225,21 @@ seL4本身的设计目的是用于安全和实时系统的微内核操作系统�
 针对未来的应用场景，我们认为未来的微内核在具有高性能和小体量的优势下，应具有的重要特性是安全性和实时性。sel4已经具有较好的安全性，通过优化调度算法等方法，我们可以增强sel4的实时性，增强在未来场景的可用性。同时，我们将尝试为其增加文件系统，使其成为一个直接可用的操作系统。
 
 ##  4. <a name='-1'></a>概要设计报告
+
 1. Rust重写sel4
     我们主要关注于 src/object 里面内容的重构。此子文件夹涉及 seL4 的核心内容———— Endpoint 端点、调度算法、TCB等。我们认为这些部分是 seL4 的核心，因此我们着重于重构这些核心部分。
-    
 
 2. 修改sel4的调度算法
     我们认为 Round Robin 调度算法还有优化的空间，或许我们可以根据不同情景切换调度。我们认为未来微内核在物联网嵌入式场景会得到广泛地应用。而Shortest Deadline Scheduling 可以保证任务完成的及时性。或许灵活切换调度算法可以更有效、高效地完成任务。
 
 3. sel4外接文件算法
-        
+          
     我们认为seL4想要在未来得到广泛的应用，那么其需要外接与之配套的文件系统，可以给其他用户程序提供文件接口，能够完成一些简单的文件任务，从而成为一个能独立运行工作的“核”内。而为了保证seL4内核的精简性和安全性，以及工作的复杂性，我们不考虑在seL4源码内添加文件系统，而改用外接的形式。这样可以降低工作量，也符合微内核最初的设计理念。
 
 
 
-##  5. <a name='SeL4'></a>SeL4初步配置与运行
+##  5. <a name='SeL4-1'></a>SeL4初步配置与运行
+
 ###  5.1. <a name='-1'></a>配置情况
 
 > `sel4test`:包含`seL4`的测试套件，用于检查内核及其`api`的功能和正确性。
@@ -344,14 +397,28 @@ QEMU运行`SeL4test`，可以编译通过并运行，得到`All is well in the u
 
 
 
-###  5.5. <a name='Reference'></a>Reference
+##  6. <a name='Reference'></a>Reference
 
-[Ninja(wikipedia.org)](https://zh.wikipedia.org/wiki/Ninja_(构建系统))
-
-[sel4bench | seL4 docs](https://docs.sel4.systems/projects/sel4bench/)
-
-[Tutorials | seL4 docs](https://docs.sel4.systems/Tutorials/)
-
-[Getting Started | seL4 docs](https://docs.sel4.systems/GettingStarted)
-
-[Running Rust programs in seL4 using the sel4-sys crate](https://antmicro.com/blog/2022/08/running-rust-programs-in-sel4/)
+> https://ieeexplore.ieee.org/abstract/document/9653483
+>
+> https://ieeexplore.ieee.org/abstract/document/9929027
+>
+> [Message-passing interprocess communication design in seL4 | IEEE Conference Publication | IEEE Xplore](https://ieeexplore.ieee.org/document/8070192)
+>
+> https://events.esd.org/wp-content/uploads/2019/08/The-seL4-Microkernel-A-Robust-Resilient-and-Open-Source-Foundation-for-Ground-Vehicle-Electronic.pdf
+>
+> [Ninja(wikipedia.org)](https://zh.wikipedia.org/wiki/Ninja_(构建系统))
+>
+> https://en.wikipedia.org/wiki/L4_microkernel_family
+>
+> [sel4bench | seL4 docs](https://docs.sel4.systems/projects/sel4bench/)
+>
+> [Tutorials | seL4 docs](https://docs.sel4.systems/Tutorials/)
+>
+> [Getting Started | seL4 docs](https://docs.sel4.systems/GettingStarted)
+>
+> [Running Rust programs in seL4 using the sel4-sys crate](https://antmicro.com/blog/2022/08/running-rust-programs-in-sel4/)
+>
+> https://www.geeksforgeeks.org/ipc-technique-pipes/
+>
+> [How to (and how not to) use seL4 IPC | microkerneldude](https://microkerneldude.org/2019/03/07/how-to-and-how-not-to-use-sel4-ipc/)
