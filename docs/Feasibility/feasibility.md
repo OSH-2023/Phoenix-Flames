@@ -353,3 +353,5 @@ QEMU运行`SeL4test`，可以编译通过并运行，得到`All is well in the u
 [Tutorials | seL4 docs](https://docs.sel4.systems/Tutorials/)
 
 [Getting Started | seL4 docs](https://docs.sel4.systems/GettingStarted)
+
+[Running Rust programs in seL4 using the sel4-sys crate](https://antmicro.com/blog/2022/08/running-rust-programs-in-sel4/)
