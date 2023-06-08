@@ -48,22 +48,22 @@ pub struct resolveAddressBits_ret<'a> {
 pub type resolveAddressBits_ret_t<'a> = resolveAddressBits_ret<'a>;
 
 
- pub fn lookupCap(thread:&tcb_t,  cPtr:cptr_t)->lookupCap_ret_t
-{
-    let lu_ret:lookupSlot_raw_ret_t;
-    let ret:lookupCap_ret_t;
+//  pub fn lookupCap(thread:&tcb_t,  cPtr:cptr_t)->lookupCap_ret_t
+// {
+//     let lu_ret:lookupSlot_raw_ret_t;
+//     let ret:lookupCap_ret_t;
 
-    lu_ret = lookupSlot(thread, cPtr);
-    if (unlikely(lu_ret.status != EXCEPTION_NONE)) {
-        ret.status = lu_ret.status;
-        ret.cap = cap_null_cap_new();
-        return ret;
-    }
+//     lu_ret = lookupSlot(thread, cPtr);
+//     if (unlikely(lu_ret.status != EXCEPTION_NONE)) {
+//         ret.status = lu_ret.status;
+//         ret.cap = cap_null_cap_new();
+//         return ret;
+//     }
 
-    ret.status = EXCEPTION_NONE;
-    ret.cap = lu_ret.slot->cap;
-    return ret;
-}
+//     ret.status = EXCEPTION_NONE;
+//     ret.cap = lu_ret.slot->cap;
+//     return ret;
+// }
 
 
 // lookupCapAndSlot_ret_t lookupCapAndSlot(tcb_t *thread, cptr_t cPtr)
@@ -85,19 +85,19 @@ pub type resolveAddressBits_ret_t<'a> = resolveAddressBits_ret<'a>;
 //     return ret;
 // }
 
-pub fn lookupSlot(thread:&tcb_t, capptr:cptr_t )->lookupSlot_raw_ret_t
-{
-    let threadRoot:cap_t ;
-    let res_ret:resolveAddressBits_ret_t;
-    let ret:lookupSlot_raw_ret_t;
+// pub fn lookupSlot(thread:&tcb_t, capptr:cptr_t )->lookupSlot_raw_ret_t
+// {
+//     let threadRoot:cap_t ;
+//     let res_ret:resolveAddressBits_ret_t;
+//     let ret:lookupSlot_raw_ret_t;
 
-    threadRoot = TCB_PTR_CTE_PTR(thread, tcbCTable)->cap;
-    res_ret = resolveAddressBits(threadRoot, capptr, wordBits);
+//     threadRoot = TCB_PTR_CTE_PTR(thread, tcbCTable)->cap;
+//     res_ret = resolveAddressBits(threadRoot, capptr, wordBits);
 
-    ret.status = res_ret.status;
-    ret.slot = res_ret.slot;
-    return ret;
-}
+//     ret.status = res_ret.status;
+//     ret.slot = res_ret.slot;
+//     return ret;
+// }
 
 // lookupSlot_ret_t lookupSlotForCNodeOp(bool_t isSource, cap_t root, cptr_t capptr,
 //                                       word_t depth)
