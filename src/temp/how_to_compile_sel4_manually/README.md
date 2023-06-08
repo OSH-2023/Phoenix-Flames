@@ -11,7 +11,7 @@ gcc -I ../kernel/include -I ../kernel/include/64 -I ../kernel/libsel4/include -I
 
 执行以下命令将kernel_all.c文件编译成对象文件：
 ```
-gcc -I ../kernel/include -I ../kernel/include/64 -I ../kernel/libsel4/include -I ../build-x86/kernel/autoconf -I ../build-x86/kernel/gen_config -I ../kernel/include/arch/x86 -I ../kernel/include/arch/x86/arch/64 -I ../build-x86/kernel/generated -I ../kernel/libsel4/sel4_arch_include/x86_64 -I ../kernel/libsel4/arch_include/x86 -I ../kernel/include/plat/pc99 -I ../kernel/include/plat/pc99/plat/64 -I ../build-x86/kernel/gen_headers -c kernel_all.c -m64  -ffreestanding  -nostdlib  -no-pie  -mno-red-zone  -mno-mmx  -mno-sse  -mno-sse2  -mno-sse3  -mno-3dnow -nostartfiles -nodefaultlibs
+gcc -I ../kernel/include -I ../kernel/include/64 -I ../kernel/libsel4/include -I ../build-x86/kernel/autoconf -I ../build-x86/kernel/gen_config -I ../kernel/include/arch/x86 -I ../kernel/include/arch/x86/arch/64 -I ../build-x86/kernel/generated -I ../kernel/libsel4/sel4_arch_include/x86_64 -I ../kernel/libsel4/arch_include/x86 -I ../kernel/include/plat/pc99 -I ../kernel/include/plat/pc99/plat/64 -I ../build-x86/kernel/gen_headers -c kernel_all.c -m64  -ffreestanding  -nostdlib  -no-pie -mno-red-zone  -mno-mmx  -mno-sse  -mno-sse2  -mno-sse3  -mno-3dnow -nostartfiles -nodefaultlibs
 ```
 
 执行以下命令用链接脚本linker.lds_pp进行链接：
