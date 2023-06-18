@@ -4,6 +4,10 @@ import time
 
 ray.init()
 
+matrix_size:int = 10    # 10 * 10 matrix
+matrix_mul_times:int = 10000
+pc_num:int = 10
+
 
 def matrix_mul(matrix1, matrix2, size):
     matrix_res = [[0.0]*size for item in range(size)]
@@ -18,10 +22,10 @@ def matrix_mul(matrix1, matrix2, size):
 @ray.remote
 class Worker(object):
     def __init__(self):
-        self.size = 10
+        self.size = matrix_size
         self.matrix0 = self.matrix_init2()
         self.res = self.matrix0.copy()
-        self.all_times = 10000
+        self.all_times = matrix_mul_times
 
     def matrix_init(self):
         # 单纯的随机数矩阵
@@ -47,29 +51,27 @@ class Worker(object):
     # 转移矩阵的极限分布
     # 计算若干个矩阵的相乘
     def calculate(self, times):
-        print("I start doing my work.")
+        # print("I start doing my work.")
         cur_time = time.time()
         task_res = self.matrix0.copy()
         for k in range(times-1):
             task_res = matrix_mul(self.res, self.matrix0, self.size)
-        print("I have finished my work, duration: ", time.time() - cur_time)
+        # print("I have finished my work, duration: ", time.time() - cur_time)
         return task_res
 
 
 if __name__ == '__main__':
     cur_time=time.time()
     worker = Worker.remote()
-    worker.all_times = 1000
-    pc_num = 10
     temps=[]
     for i in range(pc_num):
-        temp = worker.calculate.remote(worker.all_times // pc_num)
+        temp = worker.calculate.remote(matrix_mul_times // pc_num)
         temps.append(temp)
 
     result_list = ray.get(temps)
 
     result = result_list[0]
     for m in result_list:
-        result = matrix_mul(result, m, 10)
+        result = matrix_mul(result, m, matrix_size)
     print("final matrix: \n", result)
     print("total duration: ", time.time() - cur_time)
