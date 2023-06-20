@@ -222,9 +222,9 @@ total duration:  9.28380298614502
 
 **Dashboard**
 
-![Screenshot from 2023-06-20 11-41-02](src/Screenshot from 2023-06-20 11-41-02.png)
+![Screenshot from 2023-06-20 11-41-02](src/pic1.png.png)
 
-![Screenshot from 2023-06-20 11-43-12](src/Screenshot from 2023-06-20 11-43-12.png)
+![Screenshot from 2023-06-20 11-43-12](src/pic2.png.png)
 
 
 
