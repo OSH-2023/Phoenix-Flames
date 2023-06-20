@@ -330,6 +330,9 @@ total duration:  9.28380298614502
 
 ## 分布式部署及性能测试（基于docker）
 
+这里使用了4台运行Ubuntu的虚拟机服务器（实际上就是vlab），由于处于同一局域网下，连接比较方便。
+1台作为头结点和客户端，其余3台作为工作节点。
+
 #### 1、准备结点：头节点和工作节点
 
 ##### 1、安装OpenSSH Server （Linux Ubuntu）
@@ -365,7 +368,7 @@ sudo ufw status
 
 ##### 2、安装和配置Docker(Linux Ubuntu)
 
-安装Docker软件
+安装Docker
 
 ```shell
 sudo apt update
@@ -386,7 +389,7 @@ docker --version
 
 (正确安装后可以看到Docker的版本)
 
-拉取并运行"hello-world"docker镜像
+拉取并运行"hello-world"docker镜像以验证docker可以正常运行
 
 ```
 docker run hello-world
@@ -396,22 +399,7 @@ docker run hello-world
 
 ##### 1、安装Docker
 
-由于结点使用相同的docker镜像可以更好的使用Ray进行工作，因此需要在客户机上也安装Docker。
-
-编辑/etc/wsl.conf文件:
-
-```shell
-sudo nano /etc/wsl.conf
-```
-
-添加以下行:
-
-```shell
-[boot]
-systemd=true
-```
-
-使用`CTRL+O`保存并使用`CTRL+X`来退出。
+由于结点使用相同的docker镜像可以更好的使用Ray进行工作，因此最好在客户机上也安装Docker。
 
 安装Docker软件:
 
@@ -439,8 +427,9 @@ docker --version
 拉取Ray docker镜像:
 
 ```shell
-docker pull rayproject/ray-ml:latest-gpu
+docker pull rayproject/ray-ml:latest-cpu
 ```
+这里没有使用支持GPU的镜像，因为这些虚拟机都没有GPU，如果你的服务器支持GPU，你可以改用`rayproject/ray-ml:latest-gpu`。
 
 运行Ray docker容器：
 
@@ -448,6 +437,7 @@ docker pull rayproject/ray-ml:latest-gpu
 docker run -i -t rayproject/ray-ml
 ```
 
+在docker容器中，我们需要获取python和ray的版本，这样让客户端使用同样的版本才能正常运行。
 获取python版本：
 
 ```shell
@@ -493,18 +483,20 @@ ssh-keygen
 
 使用`ssh-copy-id`将公钥复制到每个节点。以一个头结点和三个工作节点为例，命令如下：
 
+示例：
 ```shell
-ssh-copy-id -i ~ /.ssh/i d_rsa. pub sungkim@ 192.168 .1 .101
-ssh-copy-id -i ~ /.ssh/i d_rsa. pub sungkim@ 192.168 .1 .102
-ssh-copy-id -i ~ /.ssh/i d_rsa. pub sungkim@ 192.168 .1 .103
-ssh-copy-id -i ~ /.ssh/i d_rsa. pub sungkim@ 192.168 .1 .104
+ssh-copy-id -i ~ /.ssh/i d_rsa. pub ssh_user@172.31.223.167
+ssh-copy-id -i ~ /.ssh/i d_rsa. pub ssh_user@172.31.176.122
+ssh-copy-id -i ~ /.ssh/i d_rsa. pub ssh_user@172.31.132.69
+ssh-copy-id -i ~ /.ssh/i d_rsa. pub ssh_user@172.31.218.156
 ```
+其中ssh_user是之后用SSH连接到这些节点时将会使用的用户名。请注意对工作节点和头结点使用的用户名都是相同的，你需要手动创建这些用户。每条命令的最后需要使用工作节点的实际IP地址。可以使用`hostname -I`来查看本机的IP。
 
 
 
 ##### 4、安装和配置Miniconda
 
-我们将安装和配置**Miniconda**以部署Ray集群。
+这里将安装和配置**Miniconda**，这样客户端就能方便地使用与节点的docker镜像中相同的Python版本和ray版本。
 
 Miniconda下载地址：[Miniconda下载]([https://www.anaconda.com/products/distribution#linux](https://docs.conda.io/en/latest/miniconda.html))
 
@@ -542,64 +534,65 @@ wget https://raw.githubusercontent.com/ray-project/ray/master/python/ray/autosca
 
 ##### 2、修改并重命名example-full.yaml文件
 
-修改YAML文件的以下部分(黑色表示)：
+修改YAML文件的以下部分(以红色表示)：
 
 ```yaml
-provider: 
-    type:  local 
-    head_ip:  YOUR_HEAD_NODE_HOSTNAME # 如果你需要从 Ray 集群网络外部运行 `ray up`，你可能需要为头节点提供一个公共 ip #（例如集群在 AWS VPC 中，你're starting ray from your laptop) # 这在使用云 VM 调试本地节点提供程序时很有用。# external_head_ip: YOUR_HEAD_PUBLIC_IP worker_ips: [ WORKER_NODE_1_HOSTNAME , WORKER_NODE_2_HOSTNAME , ... ] # 在 prem 上运行自动集群管理时可选。如果您使用协调服务器，
-    
-    
-    
-    
-    
-    
-    # 然后你可以在同一组机器上启动多个自动缩放集群，协调器
-    # 将根据需要将各个节点分配给集群。
-    # coordinator_address: "<主机>:<端口>"
+provider:
+    type: local
+    head_ip: YOUR_HEAD_NODE_HOSTNAME
+    # You may need to supply a public ip for the head node if you need
+    # to run `ray up` from outside of the Ray cluster's network
+    # (e.g. the cluster is in an AWS VPC and you're starting ray from your laptop)
+    # This is useful when debugging the local node provider with cloud VMs.
+    # external_head_ip: YOUR_HEAD_PUBLIC_IP
+    worker_ips: [WORKER_NODE_1_HOSTNAME, WORKER_NODE_2_HOSTNAME, ... ]
+    # Optional when running automatic cluster management on prem. If you use a coordinator server,
+    # then you can launch multiple autoscaling clusters on the same set of machines, and the coordinator
+    # will assign individual nodes to clusters as needed.
+    #    coordinator_address: "<host>:<port>"
 ```
 
-- head_ip：将成为头节点的计算机的 IP 地址（例如，192.1.168.101）。
+- head_ip：将成为头节点的计算机的 IP 地址（例如，172.31.223.167）。
 
-- worker_ips：将成为工作节点的计算机的 IP 地址（例如，[192.168.1.102、192.168.1.103、192.168.1.104]）。
+- worker_ips：将成为工作节点的计算机的 IP 地址（例如，[172.31.176.122，172.31.132.69，172.31.218.156]）。
 
-修改YAML文件的以下部分（黑色表示）：
+修改YAML文件的以下部分（以红色表示）：
 
 ```YAML
-# Ray 如何对新启动的节点进行身份验证。
-auth: 
-    ssh_user:  YOUR_USERNAME 
-    # 如果以下机器不需要私钥来通过 SSH 访问 Ray 
-    # 集群，您可以注释掉 `ssh_private_key`：
-    # (1) 执行 `ray up` 的机器。
-    # (2) Ray集群的头节点。
-    # 
-    # 运行ray up的机器执行SSH命令设置Ray头节点。Ray 头节点随后
-    执行 SSH 命令来设置 Ray 工作节点。当您运行 ray up 时，位于 ray up 
-    # 机器上的 ssh 凭证被复制到头节点——在内部，ssh 密钥被添加到文件挂载列表中以 rsync 到头节点。
+# How Ray will authenticate with newly launched nodes.
+auth:
+    ssh_user: YOUR_USERNAME
+    # You can comment out `ssh_private_key` if the following machines don't need a private key for SSH access to the Ray
+    # cluster:
+    #   (1) The machine on which `ray up` is executed.
+    #   (2) The head node of the Ray cluster.
+    #
+    # The machine that runs ray up executes SSH commands to set up the Ray head node. The Ray head node subsequently
+    # executes SSH commands to set up the Ray worker nodes. When you run ray up, ssh credentials sitting on the ray up
+    # machine are copied to the head node -- internally, the ssh key is added to the list of file mounts to rsync to head node.
     # ssh_private_key: ~/.ssh/id_rsa
 ```
 
-- ssh_user：将用于登录头节点计算机和工作节点计算机的用户名（例如，sungkim）。
+- ssh_user：将用于登录头节点计算机和工作节点计算机的用户名（例如，ray_client）。
 
-修改YAML文件的以下部分（黑色表示）：
+修改YAML文件的以下部分（以红色表示）：
 
 ```yaml
-# 除了头 # 节点外，要启动的最小工作节点数
-。这个数字应该 >= 0。
-# 通常，min_workers == max_workers == len(worker_ips)。
-# 该字段是可选的。
-min_workers: TYPICALLY_THE_NUMBER_OF_WORKER_IPS 
+# The minimum number of workers nodes to launch in addition to the head
+# node. This number should be >= 0.
+# Typically, min_workers == max_workers == len(worker_ips).
+# This field is optional.
+min_workers: TYPICALLY_THE_NUMBER_OF_WORKER_IPS
 
-# 除头节点外要启动的最大工作节点数。
-# 这优先于 min_workers。
-# 通常，min_workers == max_workers == len(worker_ips)。
-# 该字段是可选的。
-max_workers: TYPICALLY_THE_NUMBER_OF_WORKER_IPS 
-# 手动管理集群的默认行为是
-#min_workers == max_workers == len(worker_ips), 
-# 这意味着 Ray 在集群的所有可用节点上启动。
-# 对于自动管理的集群，需要max_workers，min_workers默认为0。
+# The maximum number of workers nodes to launch in addition to the head node.
+# This takes precedence over min_workers.
+# Typically, min_workers == max_workers == len(worker_ips).
+# This field is optional.
+max_workers: TYPICALLY_THE_NUMBER_OF_WORKER_IPS
+# The default behavior for manually managed clusters is
+# min_workers == max_workers == len(worker_ips),
+# meaning that Ray is started on all available nodes of the cluster.
+# For automatically managed clusters, max_workers is required and min_workers defaults to 0.
 ```
 
 - min_workers：worker_ips中IP地址的个数或3个。
@@ -641,71 +634,23 @@ ray dashboard default-full.yaml
 http://127.0.0.1:8265
 ```
 
-使用一个microbenchmark来确保Ray集群按预期的工作：
+运行一个microbenchmark来确保Ray集群按预期的工作：
 
 ```shell
 ray exec default-full.yaml 'ray microbenchmark'
 ```
 
-#### 4、验证Ray集群部署
+#### 4、向ray集群提交任务
 
-将使用本地 docker 容器“rayproject/ray-ml”在 Ray 集群上工作和开发。
+为了方便编程，建议将VScode连接到本地的docker容器“rayproject/ray-ml”，这样你就可以看到该容器中安装的所有的包。
 
-使用下述命令运行docker容器：
-
+假设你写好的python文件叫做my_script.py，那么可以使用如下命令将它提交到ray集群并运行：
 ```shell
-docker run -i -t -v 'your project directory':'/home/ray/projects' -w '/home/ray/projects' rayproject/ray-ml
+RAY_ADDRESS='http://127.0.0.1:8265' ray job submit --working-dir . -- python my_script.py
 ```
+需要确保my_script.py在当前工作目录下。
 
-或者使用实际的目录名称：
-
-```shell
-docker run -i -t -v '/home/sungkim/projects/ray' : '/home/ray/projects' -w '/home/ray/projects' rayproject/ray-ml
-```
-
-启动 Visual Studio Code 并将其附加到正在运行的 Docker 容器。安装 Jupyter/Python 扩展，然后创建一个新的 Jupypter notebook。
-
-在 Visual Studio Code 中，在本地工作站上安装 python 包，然后将相同的 requirements.txt 传递给 Ray 集群。
-
-```python
-%%writefile requirements.txt
-
-requests==2.28.0
-```
-
-```python
-%pip install -r requirements.txt
-```
-
-接下来连接到Ray集群（初始化）：
-
-```python
-import os
-os.environ['RAY_ADDRESS'] = 'ray://192.168.4.87:10001'
-```
-
-```python
-import ray
-
-if ray.is_initialized():
-    ray.shutdown()
-
-# Initialize the Ray cluster here
-ray.init(
-  address='auto', 
-  logging_level='FATAL', 
-  runtime_env={
-    'working_dir':'/home/ray/projects', 
-    'pip':['requirements.txt'], 
-    'env_vars':{'RAY_SCHEDULER_EVENTS': '0'},
-    'excludes': ['/home/ray/projects/.vscode-server/*']
-  }
-)
-```
-
-更多的ray.init()的信息请查阅：[Ray](https://docs.ray.io/en/latest/ray-core/package-ref.html )
-
-最后，提交要在Ray集群上执行的代码片段（命令）：
+这里进行测试时使用的命令如下：
 
 ```bash
 Desktop目录下
