@@ -86,7 +86,7 @@ ray stop
 
 退出程序
 
-#### 3、用python编写的ray部署测试代码
+#### 3、用python编写的ray部署测试代码(markov_new.py)
 
 ```python
 import ray
@@ -173,6 +173,8 @@ USTC vlab虚拟机的标准配置。
 #### 5、Ray单机版分析、测试、优化
 
 ##### 单机参数
+
+（实体机linux ubuntu22.04）
 
 ```
 (ray) tern@ubuntu:~/Documents/codes/python-codes/trial$ cat /proc/version
@@ -703,11 +705,23 @@ ray.init(
 
 更多的ray.init()的信息请查阅：[Ray](https://docs.ray.io/en/latest/ray-core/package-ref.html )
 
-最后，提交要在Ray集群上执行的代码片段：
+最后，提交要在Ray集群上执行的代码片段（命令）：
 
-```python
-#（代码片段等待你们的加入）
+```bash
+Desktop目录下
+
+RAY_ADDRESS='http://127.0.0.1:8265' ray job submit --working-dir . -- python markov.py 1000 10000
+
+RAY_ADDRESS='http://127.0.0.1:8265' ray job submit --working-dir . -- python markov.py 100 10000
+
+RAY_ADDRESS='http://127.0.0.1:8265' ray job submit --working-dir . -- python markov.py 10 10000
+
+RAY_ADDRESS='http://127.0.0.1:8265' ray job submit --working-dir . -- python markov.py 1 10000
 ```
+
+> **注意**这里由于**vlab虚拟机硬件资源的限制**，没有办法做到和其他情形下的运算规模相同的地步，事实上，在规模达到10000000时就必然会报出内存不足的错误而后自动终止程序。所以这里只能够使用很小的参数。
+>
+> 另外，由于虚拟机似乎不能够很好的支持dashboard，所以经过多次失败后最终是使用命令行界面进行部署的，也尝试了ssh终端登陆多开，在运行时用命令查看状态，不过还是达不到dashboard的效果。所以最终我们只选用任务规模、拆分数、运行时间（程序输出）作为主要关注对象。
 
 使用`ray down`来关闭Ray集群：
 
@@ -716,6 +730,30 @@ ray down default-full.yaml
 ```
 
 需要注意的是，关闭了Ray集群并没有关闭Ray容器，需要手动关闭Ray容器。
+
+
+
+**Ray docker部署的运行结果（命令如上）**
+
+![pic9](src/pic9.jpg)
+
+![pic8](src/pic8.jpg)
+
+![pic10](src/pic10.jpg)
+
+![pic11](src/pic11.jpg)
+
+### Summary
+
+**total: 10000**
+
+| pc_num  | 1000 | 100  | 10   | 1    |
+| ------- | ---- | ---- | ---- | ---- |
+| time(s) | 4.48 | 2.56 | 2.61 | 2.36 |
+
+这里的分布趋势仍然与此前的解释相符。
+
+
 
 #### 5、分布式部署的性能测试
 

@@ -6,11 +6,11 @@ import numpy as np
 ray.init()
 
 matrix_size: int = 10    # 10 * 10 matrix
-if len(sys.argv) < 2:
+if len(sys.argv) < 3:
     matrix_mul_times: int = 10000000    # 10000000 by default
 else:
     matrix_mul_times: int = int(sys.argv[2])
-if len(sys.argv) < 1:
+if len(sys.argv) < 2:
     pc_num: int = 10    # default value = 10
 else:
     pc_num: int = int(sys.argv[1])
