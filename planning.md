@@ -5,8 +5,7 @@
 * Message Passing (IPC)：王志成
 * Notifications：钟睿智
 * Threads and Execution：晏铭
-* Address Spaces and Virtual
-Memory：邓博文
+* Address Spaces and Virtual Memory：邓博文
 
 ## 开发环境的构建
 在rCore教程[实验环境配置](http://rcore-os.cn/rCore-Tutorial-Book-v3/chapter0/5setup-devel-env.html#)的一页中，完成“Rust 开发环境配置”的部分。
