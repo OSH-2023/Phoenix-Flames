@@ -1,5 +1,7 @@
-//to be done
-
+// jwh:7.5 18:00
+#![allow(non_camel_case_types)]
+#![allow(non_upper_case_globals)]
+#![allow(non_snake_case)]
 use core::intrinsics::{likely,unlikely};
 
 use super::thread::*;
