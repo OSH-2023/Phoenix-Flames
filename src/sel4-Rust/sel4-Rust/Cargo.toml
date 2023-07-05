@@ -1,0 +1,20 @@
+[package]
+name = "sel4-Rust"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+name = "sel4_rust"
+crate-type = ["staticlib"]
+
+[dependencies]
+
+
+[target.x86_64-unknown-none]
+rustflags = [
+    "-C", "linker-plugin-lto",
+    "-C", "link-arg=-nostartfiles",
+    "-Cforce-frame-pointers=yes"
+]
