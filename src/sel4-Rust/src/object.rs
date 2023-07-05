@@ -5,7 +5,6 @@
 #![allow(non_upper_case_globals)]
 #![allow(non_snake_case)]
 
-use std::sync::MutexGuard;
 
 use crate::machine::registerset::*;
 use crate::types::*;
@@ -68,7 +67,7 @@ pub struct tcb {
     tcbSchedNext: *const tcb,
     tcbSchedPrev: *const tcb,
     /* Preivous and next pointers for endpoint and notification queues, 2 words */
-    tcbEPNext: *MutexGuard<> tcb,
+    tcbEPNext: *mut tcb,
     tcbEPPrev: *const tcb,
 }
 pub type tcb_t = tcb;
