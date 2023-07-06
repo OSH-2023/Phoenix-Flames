@@ -17,73 +17,70 @@ use crate::syscall::*;
 use crate::thread::*;
 use crate::types::*;
 
-#[derive(Clone)]
-pub struct finaliseSlot_ret
-{   pub status:u64,
-    pub success:bool_t,
-    pub cleanupInfo:cap_t,
+#[derive(Clone, Copy)]
+#[repr(C)]
+pub struct finaliseSlot_ret {
+    pub status: u64,
+    pub success: bool_t,
+    pub cleanupInfo: cap_t,
 }
-pub type finalliseSlot_ret_t =finalliseSlot_ret;
+pub type finalliseSlot_ret_t = finalliseSlot_ret;
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
+#[repr(C)]
 pub struct slot_range_t {
     pub cnode: *mut cte_t,
     pub offset: u64,
     pub length: u64,
 }
 
+
 /*
 pub fn decodeCNodeInvocation
 {
 }
- */        
+ */
 
- 
- pub fn invokeCNodeRevoke(destSlot: *mut cte_t) -> u64 {
-     cteRevoke(destSlot)
- }
- 
- 
- pub fn invokeCNodeDelete(destSlot: *mut cte_t) -> u64 {
-     cteDelete(destSlot, 1u64)
- }
- 
+#[no_mangle]
+pub extern "C" fn invokeCNodeRevoke(destSlot: *mut cte_t) -> u64 {
+    cteRevoke(destSlot)
+}
 
- pub fn invokeCNodeCancelBadgedSends(cap: cap_t) -> u64 {
-     let badge = cap_endpoint_cap_get_capEPBadge(cap);
-     if badge != 0u64 {
-         let ep = cap_endpoint_cap_get_capEPPtr(cap) as *mut endpoint_t;
-         cancelBadgedSends(ep, badge);
-     }
-     0u64
- }
- 
+#[no_mangle]
+pub extern "C" fn invokeCNodeDelete(destSlot: *mut cte_t) -> u64 {
+    cteDelete(destSlot, 1u64)
+}
 
- pub fn invokeCNodeInsert(
-     cap: cap_t,
-     srcSlot: *mut cte_t,
-     destSlot: *mut cte_t,
- ) -> u64 {
-     cteInsert(cap, srcSlot, destSlot);
-     0u64
- }
- 
- pub fn invokeCNodeMove(
-     cap: cap_t,
-     srcSlot: *mut cte_t,
-     destSlot: *mut cte_t,
- ) -> u64 {
-     cteMove(cap, srcSlot, destSlot);
-     0u64
- }
- 
- pub fn invokeCNodeRotate(
+#[no_mangle]
+pub extern "C" fn invokeCNodeCancelBadgedSends(cap: cap_t) -> u64 {
+    let badge = cap_endpoint_cap_get_capEPBadge(cap);
+    if badge != 0u64 {
+        let ep = cap_endpoint_cap_get_capEPPtr(cap) as *mut endpoint_t;
+        cancelBadgedSends(ep, badge);
+    }
+    0u64
+}
+
+#[no_mangle]
+pub extern "C" fn invokeCNodeInsert(cap: cap_t, srcSlot: *mut cte_t, destSlot: *mut cte_t) -> u64 {
+    cteInsert(cap, srcSlot, destSlot);
+    0u64
+}
+
+#[no_mangle]
+pub extern "C" fn invokeCNodeMove(cap: cap_t, srcSlot: *mut cte_t, destSlot: *mut cte_t) -> u64 {
+    cteMove(cap, srcSlot, destSlot);
+    0u64
+}
+
+#[no_mangle]
+pub extern "C" fn invokeCNodeRotate(
     cap1: cap_t,
     cap2: cap_t,
     slot1: *mut cte_t,
     slot2: *mut cte_t,
     slot3: *mut cte_t,
- )-> u64 {
+) -> u64 {
     if slot1 == slot3 {
         cteSwap(cap1, slot1, cap2, slot2);
     } else {
@@ -93,7 +90,8 @@ pub fn decodeCNodeInvocation
     0u64
 }
 
-pub fn invokeCNodeSaveCaller(destSlot: *mut cte_t) -> u64 {
+#[no_mangle]
+pub extern "C" fn invokeCNodeSaveCaller(destSlot: *mut cte_t) -> u64 {
     let srcSlot = tcb_ptr_cte_ptr(node_state!(ksCurThread), tcb_cnode_index::tcbCaller as u64);
     let cap = (*srcSlot).cap;
     let cap_type = cap_get_capType(cap);
@@ -108,7 +106,8 @@ pub fn invokeCNodeSaveCaller(destSlot: *mut cte_t) -> u64 {
     0u64
 }
 
-pub fn setUntypedCapAsFull(srcCap: cap_t, newCap: cap_t, srcSlot: *mut cte_t) {
+#[no_mangle]
+pub extern "C" fn setUntypedCapAsFull(srcCap: cap_t, newCap: cap_t, srcSlot: *mut cte_t) {
     if cap_get_capType(srcCap) == cap_tag_t::cap_untyped_cap as u64
         && cap_get_capType(newCap) == cap_tag_t::cap_untyped_cap as u64
     {
@@ -123,8 +122,9 @@ pub fn setUntypedCapAsFull(srcCap: cap_t, newCap: cap_t, srcSlot: *mut cte_t) {
     }
 }
 
-//unsafe
-pub fn cteInsert(newCap: cap_t, srcSlot: *mut cte_t, destSlot: *mut cte_t) {
+
+#[no_mangle]//unsafe
+pub extern "C" fn cteInsert(newCap: cap_t, srcSlot: *mut cte_t, destSlot: *mut cte_t) {
     let srcMDB: mdb_node_t = (*srcSlot).cteMDBNode;
     let srcCap: cap_t = (*srcSlot).cap;
     let newCapIsRevocable: u64 = isCapRevocable(newCap, srcCap);
@@ -143,7 +143,8 @@ pub fn cteInsert(newCap: cap_t, srcSlot: *mut cte_t, destSlot: *mut cte_t) {
     }
 }
 
-pub fn cteMove(newCap: cap_t, srcSlot: *mut cte_t, destSlot: *mut cte_t) {
+#[no_mangle]
+pub extern "C" fn cteMove(newCap: cap_t, srcSlot: *mut cte_t, destSlot: *mut cte_t) {
     let mut mdb: mdb_node_t;
     let mut prev_ptr: word_t;
     let mut next_ptr: word_t;
@@ -168,22 +169,17 @@ pub fn cteMove(newCap: cap_t, srcSlot: *mut cte_t, destSlot: *mut cte_t) {
 
     prev_ptr = mdb_node_get_mdbPrev(mdb);
     if prev_ptr != 0 {
-        mdb_node_ptr_set_mdbNext(
-            &mut (*(prev_ptr as *mut cte_t)).cteMDBNode,
-            destSlot as u64,
-        );
+        mdb_node_ptr_set_mdbNext(&mut (*(prev_ptr as *mut cte_t)).cteMDBNode, destSlot as u64);
     }
 
     next_ptr = mdb_node_get_mdbNext(mdb);
     if next_ptr != 0 {
-        mdb_node_ptr_set_mdbPrev(
-            &mut (*(next_ptr as *mut cte_t)).cteMDBNode,
-            destSlot as u64,
-        );
+        mdb_node_ptr_set_mdbPrev(&mut (*(next_ptr as *mut cte_t)).cteMDBNode, destSlot as u64);
     }
 }
 
-pub  fn capSwapForDelete(slot1: *mut cte_t, slot2: *mut cte_t) {
+#[no_mangle]
+pub extern "C" fn capSwapForDelete(slot1: *mut cte_t, slot2: *mut cte_t) {
     if slot1 == slot2 {
         return;
     }
@@ -192,12 +188,8 @@ pub  fn capSwapForDelete(slot1: *mut cte_t, slot2: *mut cte_t) {
     cteSwap(cap1, slot1, cap2, slot2);
 }
 
-pub fn cteSwap(
-    cap1: cap_t,
-    slot1: *mut cte_t,
-    cap2: cap_t,
-    slot2: *mut cte_t,
-) {
+#[no_mangle]
+pub extern "C" fn cteSwap(cap1: cap_t, slot1: *mut cte_t, cap2: cap_t, slot2: *mut cte_t) {
     let mut mdb1: mdb_node_t;
     let mut mdb2: mdb_node_t;
     let mut next_ptr: word_t;
@@ -209,18 +201,12 @@ pub fn cteSwap(
     mdb1 = (*slot1).cteMDBNode;
     prev_ptr = mdb_node_get_mdbPrev(mdb1);
     if prev_ptr != 0 {
-        mdb_node_ptr_set_mdbNext(
-            &mut (*(prev_ptr as *mut cte_t)).cteMDBNode,
-            CTE_REF(slot2),
-        );
+        mdb_node_ptr_set_mdbNext(&mut (*(prev_ptr as *mut cte_t)).cteMDBNode, CTE_REF(slot2));
     }
 
     next_ptr = mdb_node_get_mdbNext(mdb1);
     if next_ptr != 0 {
-        mdb_node_ptr_set_mdbPrev(
-            &mut (*(next_ptr as *mut cte_t)).cteMDBNode,
-            CTE_REF(slot2),
-        );
+        mdb_node_ptr_set_mdbPrev(&mut (*(next_ptr as *mut cte_t)).cteMDBNode, CTE_REF(slot2));
     }
 
     mdb2 = (*slot2).cteMDBNode;
@@ -229,28 +215,22 @@ pub fn cteSwap(
 
     prev_ptr = mdb_node_get_mdbPrev(mdb2);
     if prev_ptr != 0 {
-        mdb_node_ptr_set_mdbNext(
-            &mut (*(prev_ptr as *mut cte_t)).cteMDBNode,
-            CTE_REF(slot1),
-        );
+        mdb_node_ptr_set_mdbNext(&mut (*(prev_ptr as *mut cte_t)).cteMDBNode, CTE_REF(slot1));
     }
 
     next_ptr = mdb_node_get_mdbNext(mdb2);
     if next_ptr != 0 {
-        mdb_node_ptr_set_mdbPrev(
-            &mut (*(next_ptr as *mut cte_t)).cteMDBNode,
-            CTE_REF(slot1),
-        );
+        mdb_node_ptr_set_mdbPrev(&mut (*(next_ptr as *mut cte_t)).cteMDBNode, CTE_REF(slot1));
     }
 }
 
-
-pub fn cteRevoke(slot: *mut cte_t) -> u64 {
+#[no_mangle]
+pub extern "C" fn cteRevoke(slot: *mut cte_t) -> u64 {
     let mut nextPtr: *mut cte_t;
     let mut status: u64;
 
     /* there is no need to check for a NullCap as NullCaps are
-       always accompanied by null mdb pointers */
+    always accompanied by null mdb pointers */
     nextPtr = CTE_PTR(mdb_node_get_mdbNext((*slot).cteMDBNode));
     while nextPtr != ptr::null_mut() && isMDBParentOf(slot, nextPtr) {
         status = cteDelete(nextPtr, true);
@@ -269,7 +249,8 @@ pub fn cteRevoke(slot: *mut cte_t) -> u64 {
     return 0u64;
 }
 
-pub fn cteDelete(slot: *mut cte_t, exposed: bool_t) -> u64 {
+#[no_mangle]
+pub extern "C" fn cteDelete(slot: *mut cte_t, exposed: bool_t) -> u64 {
     let fs_ret: finaliseSlot_ret_t;
 
     fs_ret = finaliseSlot(slot, exposed);
@@ -283,8 +264,8 @@ pub fn cteDelete(slot: *mut cte_t, exposed: bool_t) -> u64 {
     return 0u64;
 }
 
-
-pub fn emptySlot(slot: *mut cte_t, cleanupInfo: cap_t) {
+#[no_mangle]
+pub extern "C" fn emptySlot(slot: *mut cte_t, cleanupInfo: cap_t) {
     if cap_get_capType((*slot).cap) != cap_null_cap {
         let mut mdbNode: mdb_node_t;
         let mut prev: *mut cte_t;
@@ -301,9 +282,11 @@ pub fn emptySlot(slot: *mut cte_t, cleanupInfo: cap_t) {
             mdb_node_ptr_set_mdbPrev(&mut (*next).cteMDBNode, CTE_REF(prev));
         }
         if !next.is_null() {
-            mdb_node_ptr_set_mdbFirstBadged(&mut (*next).cteMDBNode,
-                                            mdb_node_get_mdbFirstBadged((*next).cteMDBNode) ||
-                                            mdb_node_get_mdbFirstBadged(mdbNode));
+            mdb_node_ptr_set_mdbFirstBadged(
+                &mut (*next).cteMDBNode,
+                mdb_node_get_mdbFirstBadged((*next).cteMDBNode)
+                    || mdb_node_get_mdbFirstBadged(mdbNode),
+            );
         }
         (*slot).cap = cap_null_cap_new();
         (*slot).cteMDBNode = nullMDBNode;
@@ -312,24 +295,26 @@ pub fn emptySlot(slot: *mut cte_t, cleanupInfo: cap_t) {
     }
 }
 
-pub fn capRemovable(cap: cap_t, slot: *mut cte_t) -> bool_t {
+#[no_mangle]
+pub extern "C" fn capRemovable(cap: cap_t, slot: *mut cte_t) -> bool_t {
     match cap_get_capType(cap) {
         cap_null_cap => true,
         cap_zombie_cap => {
             let n = cap_zombie_cap_get_capZombieNumber(cap);
             let z_slot = CTE_PTR(cap_zombie_cap_get_capZombiePtr(cap)) as *mut cte_t;
             n == 0 || (n == 1 && slot == z_slot)
-        },
+        }
         _ => fail!("finaliseCap should only return Zombie or NullCap"),
     }
 }
 
-pub fn capCyclicZombie(cap: cap_t, slot: *mut cte_t) -> bool_t {
-    cap_get_capType(cap) == cap_zombie_cap &&
-    CTE_PTR(cap_zombie_cap_get_capZombiePtr(cap)) == slot
+#[no_mangle]
+pub extern "C" fn capCyclicZombie(cap: cap_t, slot: *mut cte_t) -> bool_t {
+    cap_get_capType(cap) == cap_zombie_cap && CTE_PTR(cap_zombie_cap_get_capZombiePtr(cap)) == slot
 }
 
-pub fn finaliseSlot(slot: *mut cte_t, immediate: bool_t) -> finaliseSlot_ret_t {
+#[no_mangle]
+pub extern "C" fn finaliseSlot(slot: *mut cte_t, immediate: bool_t) -> finaliseSlot_ret_t {
     while cap_get_capType((*slot).cap) != cap_tag_t::cap_null_cap as u64 {
         let final_: u64 = isFinalCapability(slot);
         let fc_ret = finaliseCap((*slot).cap, final_, 0u64);
@@ -372,7 +357,8 @@ pub fn finaliseSlot(slot: *mut cte_t, immediate: bool_t) -> finaliseSlot_ret_t {
     }
 }
 
-pub fn reduceZombie(slot: *mut cte_t, immediate: bool_t) -> u64 {
+#[no_mangle]
+pub extern "C" fn reduceZombie(slot: *mut cte_t, immediate: bool_t) -> u64 {
     let ptr = cap_zombie_cap_get_capZombiePtr((*slot).cap) as *mut cte_t;
     let n = cap_zombie_cap_get_capZombieNumber((*slot).cap);
     let type_ = cap_zombie_cap_get_capZombieType((*slot).cap);
@@ -401,8 +387,10 @@ pub fn reduceZombie(slot: *mut cte_t, immediate: bool_t) -> u64 {
     0u64
 }
 
+
+#[no_mangle]
 #[allow(unused_variables)]
-pub fn cteDeleteOne(slot: *mut cte_t) {
+pub extern "C" fn cteDeleteOne(slot: *mut cte_t) {
     let cap_type = cap_get_capType((*slot).cap);
     if cap_type != cap_tag_t::cap_null_cap as u64 {
         let final_ = isFinalCapability(slot);
@@ -411,7 +399,8 @@ pub fn cteDeleteOne(slot: *mut cte_t) {
     }
 }
 
-pub fn insertNewCap(parent: *mut cte_t, slot: *mut cte_t, cap: cap_t) {
+#[no_mangle]
+pub extern "C" fn insertNewCap(parent: *mut cte_t, slot: *mut cte_t, cap: cap_t) {
     let next = mdb_node_get_mdbNext((*parent).cteMDBNode) as *mut cte_t;
     (*slot).cap = cap;
     (*slot).cteMDBNode = mdb_node_new(next as u64, 1u64, 1u64, parent as u64);
@@ -421,7 +410,8 @@ pub fn insertNewCap(parent: *mut cte_t, slot: *mut cte_t, cap: cap_t) {
     mdb_node_ptr_set_mdbNext(&mut (*parent).cteMDBNode, slot as u64);
 }
 
-pub fn setupReplyMaster(thread: *mut tcb_t) {
+#[no_mangle]
+pub extern "C" fn setupReplyMaster(thread: *mut tcb_t) {
     let slot = tcb_ptr_cte_ptr(thread, tcb_cnode_index::tcbReply as u64);
     if cap_get_capType((*slot).cap) == cap_tag_t::cap_null_cap as u64 {
         (*slot).cap = cap_reply_cap_new(1u64, thread as u64);
@@ -431,7 +421,8 @@ pub fn setupReplyMaster(thread: *mut tcb_t) {
     }
 }
 
-pub fn isMDBParentOf(cte_a: *mut cte_t, cte_b: *mut cte_t) -> bool_t {
+#[no_mangle]
+pub extern "C" fn isMDBParentOf(cte_a: *mut cte_t, cte_b: *mut cte_t) -> bool_t {
     if mdb_node_get_mdbRevocable((*cte_a).cteMDBNode) == 0u64 {
         return 0u64;
     }
@@ -476,7 +467,8 @@ pub unsafe extern "C" fn ensureEmptySlot(slot: *mut cte_t) -> u64 {
     return 0u64;
 }
 
-pub fn isFinalCapability(cte: *mut cte_t) -> bool_t {
+#[no_mangle]
+pub extern "C" fn isFinalCapability(cte: *mut cte_t) -> bool_t {
     let mdb = (*cte).cteMDBNode;
     let prevIsSameObject: bool = if mdb_node_get_mdbPrev(mdb) == 0u64 {
         false
@@ -496,7 +488,8 @@ pub fn isFinalCapability(cte: *mut cte_t) -> bool_t {
     }
 }
 
-pub fn slotCapLongRunningDelete(slot: *mut cte_t) -> bool_t {
+#[no_mangle]
+pub extern "C" fn slotCapLongRunningDelete(slot: *mut cte_t) -> bool_t {
     let cap_type = cap_get_capType((*slot).cap);
     if cap_type == cap_tag_t::cap_null_cap as u64 || isFinalCapability(slot) == 0u64 {
         return 0u64;
@@ -510,7 +503,8 @@ pub fn slotCapLongRunningDelete(slot: *mut cte_t) -> bool_t {
     0u64
 }
 
-pub fn getReceiveSlots(thread: *mut tcb_t, buffer: *mut u64) -> *mut cte_t {
+#[no_mangle]
+pub extern "C" fn getReceiveSlots(thread: *mut tcb_t, buffer: *mut u64) -> *mut cte_t {
     if buffer as u64 == 0u64 {
         return 0u64 as *mut cte_t;
     }
@@ -525,13 +519,15 @@ pub fn getReceiveSlots(thread: *mut tcb_t, buffer: *mut u64) -> *mut cte_t {
     if lus_ret.status != 0u64 {
         return 0u64 as *mut cte_t;
     }
-    let slot = lus_ret.slot;if cap_get_capType((*slot).cap) != cap_tag_t::cap_null_cap as u64 {
+    let slot = lus_ret.slot;
+    if cap_get_capType((*slot).cap) != cap_tag_t::cap_null_cap as u64 {
         return 0u64 as *mut cte_t;
     }
     slot
 }
 
-pub fn loadCapTransfer(buffer: *mut u64) -> cap_transfer_t {
+#[no_mangle]
+pub extern "C" fn loadCapTransfer(buffer: *mut u64) -> cap_transfer_t {
     const offset: isize = (seL4_MsgMaxLength + seL4_MsgMaxExtraCaps as u64 + 2) as isize;
     capTransferFromWords(buffer.offset(offset))
 }

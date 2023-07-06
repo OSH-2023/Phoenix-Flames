@@ -2,7 +2,7 @@
 #![allow(non_camel_case_types)]
 #![allow(non_upper_case_globals)]
 #![allow(non_snake_case)]
-use core::intrinsics::{likely,unlikely};
+use core::intrinsics::{likely, unlikely};
 
 use super::thread::*;
 use crate::failures::*;
@@ -12,14 +12,16 @@ use crate::object::*;
 use crate::types::*;
 
 //from cspace.h
-#[derive(Clone)]
+#[derive(Clone, Copy)]
+#[repr(C)]
 pub struct lookupCap_ret {
     pub status: exception_t,
     pub cap: cap_t,
 }
 pub type lookupCap_ret_t = lookupCap_ret;
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
+#[repr(C)]
 pub struct lookupCapAndSlot_ret<'a> {
     pub status: exception_t,
     pub cap: cap_t,
@@ -27,21 +29,24 @@ pub struct lookupCapAndSlot_ret<'a> {
 }
 pub type lookupCapAndSlot_ret_t<'a> = lookupCapAndSlot_ret<'a>;
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
+#[repr(C)]
 pub struct lookupSlot_raw_ret<'a> {
     pub status: exception_t,
     pub slot: &'a cte_t,
 }
 pub type lookupSlot_raw_ret_t<'a> = lookupSlot_raw_ret<'a>;
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
+#[repr(C)]
 pub struct lookupSlot_ret<'a> {
     pub status: exception_t,
     pub slot: &'a cte_t,
 }
 pub type lookupSlot_ret_t<'a> = lookupSlot_ret<'a>;
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
+#[repr(C)]
 pub struct resolveAddressBits_ret<'a> {
     pub status: exception_t,
     pub slot: &'a cte_t,
@@ -49,8 +54,8 @@ pub struct resolveAddressBits_ret<'a> {
 }
 pub type resolveAddressBits_ret_t<'a> = resolveAddressBits_ret<'a>;
 
-
-pub fn lookupCap(thread: *mut tcb_t, cPtr: u64) -> lookupCap_ret_t {
+#[no_mangle]
+pub extern "C" fn lookupCap(thread: *mut tcb_t, cPtr: u64) -> lookupCap_ret_t {
     let mut lu_ret = lookupSlot(thread, cPtr);
     if lu_ret.status != 0u64 {
         return lookupCap_ret_t {
@@ -64,16 +69,15 @@ pub fn lookupCap(thread: *mut tcb_t, cPtr: u64) -> lookupCap_ret_t {
     }
 }
 
-
-pub fn lookupCapAndSlot(thread: *mut  tcb_t,cPtr:u64)->lookupCapAndSlot_ret_t
-{
-    let mut lu_ret=lookupSlot(thread,cPtr);
+#[no_mangle]
+pub extern "C" fn lookupCapAndSlot(thread: *mut tcb_t, cPtr: u64) -> lookupCapAndSlot_ret_t {
+    let mut lu_ret = lookupSlot(thread, cPtr);
     if lu_ret.status != 0u64 {
-        return lookupCapAndSlot_ret_t{
-            status:lu_ret.status,
-            slot:std::ptr::null_mut(),
-            cap:cap_null_cap_new(),
-        }
+        return lookupCapAndSlot_ret_t {
+            status: lu_ret.status,
+            slot: std::ptr::null_mut(),
+            cap: cap_null_cap_new(),
+        };
     }
     lookupCapAndSlot_ret_t {
         status: 0u64,
@@ -82,9 +86,8 @@ pub fn lookupCapAndSlot(thread: *mut  tcb_t,cPtr:u64)->lookupCapAndSlot_ret_t
     }
 }
 
-
-pub fn lookupSlot(thread: *mut tcb_t, capptr:u64 )->lookupSlot_raw_ret_t
-{
+#[no_mangle]
+pub extern "C" fn lookupSlot(thread: *mut tcb_t, capptr: u64) -> lookupSlot_raw_ret_t {
     let threadRoot = (*tcb_ptr_cte_ptr(thread, tcb_cnode_index::tcbCTable as u64)).cap;
     let res_ret = resolveAddressBits(threadRoot, capptr, wordBits);
     lookupSlot_raw_ret_t {
@@ -93,19 +96,24 @@ pub fn lookupSlot(thread: *mut tcb_t, capptr:u64 )->lookupSlot_raw_ret_t
     }
 }
 
-pub fn lookupSlotForCNodeOp(isSource:bool_t,root:cap_t,capptr:u64,depth:u64)->lookupSlot_ret_t
-{
-    let res_ret:resolveAddressBits_ret_t ;
-    let ret:lookupSlot_ret_t;
-    
-    ret.slot=std::ptr::null_mut();
+#[no_mangle]
+pub extern "C" fn lookupSlotForCNodeOp(
+    isSource: bool_t,
+    root: cap_t,
+    capptr: u64,
+    depth: u64,
+) -> lookupSlot_ret_t {
+    let res_ret: resolveAddressBits_ret_t;
+    let ret: lookupSlot_ret_t;
+
+    ret.slot = std::ptr::null_mut();
     if cap_get_capType(root) != cap_tag_t::cap_cnode_cap as u64 {
         current_syscall_error.type_ = seL4_Error::seL4_FailedLookup as u64;
         current_syscall_error.failedLookupWasSource = isSource;
         current_lookup_fault = lookup_fault_invalid_root_new();
         return lookupSlot_ret_t {
             status: exception::EXCEPTION_SYSCALL_ERROR as u64,
-            slot: std::ptr::null_mut()
+            slot: std::ptr::null_mut(),
         };
     }
     if depth < 1 || depth > wordBits {
@@ -141,24 +149,19 @@ pub fn lookupSlotForCNodeOp(isSource:bool_t,root:cap_t,capptr:u64,depth:u64)->lo
         slot: res_ret.slot,
     }
 }
-pub  fn lookupSourceSlot(
-    root: cap_t,
-    capptr: u64,
-    depth: u64,
-) -> lookupSlot_ret_t {
+
+#[no_mangle]
+pub extern "C" fn lookupSourceSlot(root: cap_t, capptr: u64, depth: u64) -> lookupSlot_ret_t {
     lookupSlotForCNodeOp(1u64, root, capptr, depth)
 }
 
-
-pub fn lookupTargetSlot(
-    root: cap_t,
-    capptr: u64,
-    depth: u64,
-) -> lookupSlot_ret_t {
+#[no_mangle]
+pub extern "C" fn lookupTargetSlot(root: cap_t, capptr: u64, depth: u64) -> lookupSlot_ret_t {
     lookupSlotForCNodeOp(0u64, root, capptr, depth)
 }
 
-pub fn lookupPivotSlot(root: cap_t, capptr: u64, depth: u64) -> lookupSlot_ret_t {
+#[no_mangle]
+pub extern "C" fn lookupPivotSlot(root: cap_t, capptr: u64, depth: u64) -> lookupSlot_ret_t {
     lookupSlotForCNodeOp(1u64, root, capptr, depth)
 }
 
@@ -168,15 +171,15 @@ macro_rules! MASK {
     };
 }
 
-
-pub fn resolveAddressBits(
+#[no_mangle]
+pub extern "C" fn resolveAddressBits(
     mut nodeCap: cap_t,
     capptr: u64,
     mut n_bits: u64,
 ) -> resolveAddressBits_ret_t {
     let mut ret = resolveAddressBits_ret_t {
         status: 0u64,
-        slot:std::ptr::null_mut(),
+        slot: std::ptr::null_mut(),
         bitsRemaining: n_bits,
     };
     if cap_get_capType(nodeCap) != cap_tag_t::cap_cnode_cap as u64 {
