@@ -108,7 +108,6 @@ pub fn cancleAllSignals(ntfnPtr: *mut notification_t) {
                 thread = (*thread).tcbEPNext;//from thread.c
             }
         }
-
     }
 }
 
@@ -175,9 +174,3 @@ pub fn ntfn_set_active(ntfnPtr: *mut notification_t, badge: word_t){
     notification_ptr_set_state(ntfnPtr, NtfnState_Active as u64);
     notification_ptr_set_ntfnMsgIdentifier(ntfnPtr, badge);
 }
-
-// static inline void ntfn_set_active(notification_t *ntfnPtr, word_t badge)
-// {
-//     notification_ptr_set_state(ntfnPtr, NtfnState_Active);
-//     notification_ptr_set_ntfnMsgIdentifier(ntfnPtr, badge);
-// }
