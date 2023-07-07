@@ -1,6 +1,8 @@
 .vscode
 */target/*
 *.elf
+*.bin
+target/
 # Ignore executable files without extensions
 *
 !*/
