@@ -1,31 +1,8 @@
-
-
 //thread.c
 
-pub type prio_t = word_t;
-#[repr(C)]
-pub struct tcb_t {
-    pub tcbArch: arch_tcb_t,
-    pub tcbState: thread_state_t,
-    pub tcbBoundNotification: *mut notification_t,
-    pub tcbFault: seL4_Fault_t,
-    pub tcbLookupFailure: lookup_fault_t,
-    pub tcbDomain: types::dom_t,
-    pub tcbMCP: types::prio_t,
-    pub tcbPriority: types::prio_t,
-    pub tcbTimeSlice: word_t,
-    pub tcbFaultHandler: types::cptr_t,
-    pub tcbIPCBuffer: word_t,
+use crate::types::*;
+use crate::object::*;
 
-    pub tcbSchedNext: *mut tcb_t,
-    pub tcbSchedPrev: *mut tcb_t,
-    pub tcbEPNext: *mut tcb_t,
-    pub tcbEPPrev: *mut tcb_t,
-
-    pub tcbDebugNext: *mut tcb_t,
-    pub tcbDebugPrev: *mut tcb_t,
-    pub tcbName: *mut u8, //C语言中是char tcbName[]，这里直接翻译成指针了
-}
 
 pub fn configureIdleThread(tcb: *mut tcb_t) {
     unsafe {

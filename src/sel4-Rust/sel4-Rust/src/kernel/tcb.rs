@@ -10,22 +10,6 @@ pub const L2_BITMAP_SIZE: usize = (256 + (1 << 6) - 1) / (1 << 6);
 pub const wordRadix: u64 = 6;
 pub const wordBits: u64 = 1 << 6;
 
-macro_rules! MASK {
-    ($x:expr) => {
-        (1u64 << ($x)) - 1u64
-    };
-}
-
-macro_rules! BIT {
-    ($x:expr) => {
-        (1u64 << ($x))
-    };
-}
-
-pub fn TCB_PTR_CTE_PTR(p:*mut tcb_t, i:u64) -> *mut cte_t{
-    ((((p as word_t) & (!MASK!(10))) as *mut cte_t) + i) as *mut cte_t
-}
-
 static mut ksReadyQueuesL1Bitmap:[u64; 1];
 static mut ksReadyQueuesL2Bitmap: [[u64; L2_BITMAP_SIZE]; 1];
 static mut ksReadyQueues: [tcb_queue_t;256];

@@ -8,6 +8,7 @@
 
 use crate::machine::registerset::*;
 use crate::types::*;
+use crate::MASK;
 
 /*
 Including contents from:
@@ -72,6 +73,10 @@ pub struct tcb {
 }
 pub type tcb_t = tcb;
 
+pub fn TCB_PTR_CTE_PTR(p:*mut tcb_t, i:u64) -> *mut cte_t{
+    ((((p as word_t) & (!MASK!(10))) as u64) + i) as *mut cte_t
+}
+
 // 2. from arch/object/structures.h
 #[derive(Clone,Copy)]
 pub struct arch_tcb {
@@ -118,7 +123,7 @@ pub type notification_t=notification;
 pub struct thread_state {
     pub words: [u64; 3],
 }
-type thread_state_t = thread_state;
+pub type thread_state_t = thread_state;
 
 #[derive(Clone,Copy)]
 pub struct cap {
@@ -127,12 +132,14 @@ pub struct cap {
 pub type cap_t = cap;
 
 #[derive(Clone,Copy)]
+#[repr(C)]
 pub struct lookup_fault {
     pub words:[u64;2]
 }
-type lookup_fault_t=lookup_fault ;
+pub type lookup_fault_t=lookup_fault ;
 
 #[derive(Clone,Copy)]
+#[repr(C)]
 pub struct seL4_Fault {
     pub words:[u64;2]
 }
@@ -230,4 +237,36 @@ pub fn notification_ptr_set_ntfnBoundTCB(notification_ptr:*mut notification_t, v
         (*notification_ptr).words[3] &= !0x7fffffffffu64;
         (*notification_ptr).words[3] |= (v64>>0) & 0x7fffffffff;
     }
+}
+
+
+pub fn cap_null_cap_new()->cap_t{
+    let mut cap:cap_t;
+
+    /* fail if user has passed bits that we will override */  
+    //assert(((uint64_t)cap_null_cap & ~0x1full) == ((1 && ((uint64_t)cap_null_cap & (1ull << 47))) ? 0x0 : 0));
+
+    cap.words[0] = 0 | ((0 as u64) & 0x1fu64) << 59;
+    cap.words[1] = 0;
+
+    cap
+}
+
+#[inline(always)]
+pub fn cap_get_capType(cap:cap_t)->u64 {
+    return (cap.words[0] >> 59) & 0x1fu64;
+}
+
+#[inline(always)]
+pub fn lookup_fault_invalid_root_new()->lookup_fault_t {
+    let mut lookup_fault:lookup_fault_t;
+
+    /* fail if user has passed bits that we will override */  
+    //assert(((uint64_t)lookup_fault_invalid_root & ~0x3ull) == ((1 && ((uint64_t)lookup_fault_invalid_root & (1ull << 47))) ? 0x0 : 0));
+
+    lookup_fault.words[0] = 0
+        | (0 as u64 & 0x3u64) << 0;
+    lookup_fault.words[1] = 0;
+
+    return lookup_fault;
 }

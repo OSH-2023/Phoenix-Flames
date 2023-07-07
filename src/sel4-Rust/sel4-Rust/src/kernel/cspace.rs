@@ -6,6 +6,7 @@ use core::intrinsics::{likely, unlikely};
 
 use super::thread::*;
 use crate::failures::*;
+use crate::inlines::*;
 use crate::machine::*;
 use crate::model::statedata::*;
 use crate::object::*;
@@ -22,37 +23,37 @@ pub type lookupCap_ret_t = lookupCap_ret;
 
 #[derive(Clone, Copy)]
 #[repr(C)]
-pub struct lookupCapAndSlot_ret<'a> {
+pub struct lookupCapAndSlot_ret {
     pub status: exception_t,
     pub cap: cap_t,
-    pub slot: &'a cte_t,
+    pub slot: *mut cte_t,
 }
-pub type lookupCapAndSlot_ret_t<'a> = lookupCapAndSlot_ret<'a>;
+pub type lookupCapAndSlot_ret_t = lookupCapAndSlot_ret;
 
 #[derive(Clone, Copy)]
 #[repr(C)]
-pub struct lookupSlot_raw_ret<'a> {
+pub struct lookupSlot_raw_ret {
     pub status: exception_t,
-    pub slot: &'a cte_t,
+    pub slot: *mut cte_t,
 }
-pub type lookupSlot_raw_ret_t<'a> = lookupSlot_raw_ret<'a>;
+pub type lookupSlot_raw_ret_t = lookupSlot_raw_ret;
 
 #[derive(Clone, Copy)]
 #[repr(C)]
-pub struct lookupSlot_ret<'a> {
+pub struct lookupSlot_ret {
     pub status: exception_t,
-    pub slot: &'a cte_t,
+    pub slot: *mut cte_t,
 }
-pub type lookupSlot_ret_t<'a> = lookupSlot_ret<'a>;
+pub type lookupSlot_ret_t = lookupSlot_ret;
 
 #[derive(Clone, Copy)]
 #[repr(C)]
-pub struct resolveAddressBits_ret<'a> {
+pub struct resolveAddressBits_ret {
     pub status: exception_t,
-    pub slot: &'a cte_t,
+    pub slot: *mut cte_t,
     pub bitsRemaining: u64,
 }
-pub type resolveAddressBits_ret_t<'a> = resolveAddressBits_ret<'a>;
+pub type resolveAddressBits_ret_t = resolveAddressBits_ret;
 
 #[no_mangle]
 pub extern "C" fn lookupCap(thread: *mut tcb_t, cPtr: u64) -> lookupCap_ret_t {
@@ -63,9 +64,11 @@ pub extern "C" fn lookupCap(thread: *mut tcb_t, cPtr: u64) -> lookupCap_ret_t {
             cap: cap_null_cap_new(),
         };
     }
-    lookupCap_ret_t {
-        status: 0u64,
-        cap: (*lu_ret.slot).cap,
+    unsafe {
+        lookupCap_ret_t {
+            status: 0u64,
+            cap: (*lu_ret.slot).cap,
+        }
     }
 }
 
@@ -75,20 +78,25 @@ pub extern "C" fn lookupCapAndSlot(thread: *mut tcb_t, cPtr: u64) -> lookupCapAn
     if lu_ret.status != 0u64 {
         return lookupCapAndSlot_ret_t {
             status: lu_ret.status,
-            slot: std::ptr::null_mut(),
+            slot: 0 as *mut cte,
             cap: cap_null_cap_new(),
         };
     }
-    lookupCapAndSlot_ret_t {
-        status: 0u64,
-        cap: (*lu_ret.slot).cap,
-        slot: lu_ret.slot,
+    unsafe {
+        lookupCapAndSlot_ret_t {
+            status: 0u64,
+            cap: (*lu_ret.slot).cap,
+            slot: lu_ret.slot,
+        }
     }
 }
 
 #[no_mangle]
 pub extern "C" fn lookupSlot(thread: *mut tcb_t, capptr: u64) -> lookupSlot_raw_ret_t {
-    let threadRoot = (*tcb_ptr_cte_ptr(thread, tcb_cnode_index::tcbCTable as u64)).cap;
+    let mut threadRoot: cap;
+    unsafe {
+        threadRoot = (*TCB_PTR_CTE_PTR(thread, 0)).cap;
+    }
     let res_ret = resolveAddressBits(threadRoot, capptr, wordBits);
     lookupSlot_raw_ret_t {
         status: res_ret.status,
@@ -106,23 +114,27 @@ pub extern "C" fn lookupSlotForCNodeOp(
     let res_ret: resolveAddressBits_ret_t;
     let ret: lookupSlot_ret_t;
 
-    ret.slot = std::ptr::null_mut();
-    if cap_get_capType(root) != cap_tag_t::cap_cnode_cap as u64 {
-        current_syscall_error.type_ = seL4_Error::seL4_FailedLookup as u64;
-        current_syscall_error.failedLookupWasSource = isSource;
-        current_lookup_fault = lookup_fault_invalid_root_new();
+    ret.slot = 0 as *mut cte;
+    if cap_get_capType(root) != 10 as u64 {
+        unsafe {
+            current_syscall_error.error_type = 6 as u64;
+            current_syscall_error.failedLookupWasSource = isSource;
+            current_lookup_fault = lookup_fault_invalid_root_new();
+        }
         return lookupSlot_ret_t {
             status: exception::EXCEPTION_SYSCALL_ERROR as u64,
-            slot: std::ptr::null_mut(),
+            slot: 0 as *mut cte,
         };
     }
     if depth < 1 || depth > wordBits {
-        current_syscall_error.type_ = seL4_Error::seL4_RangeError as u64;
-        current_syscall_error.rangeErrorMin = 1;
-        current_syscall_error.rangeErrorMax = wordBits;
+        unsafe {
+            current_syscall_error.error_type = seL4_Error::seL4_RangeError as u64;
+            current_syscall_error.rangeErrorMin = 1;
+            current_syscall_error.rangeErrorMax = wordBits;
+        }
         return lookupSlot_ret_t {
             status: exception::EXCEPTION_SYSCALL_ERROR as u64,
-            slot: std::ptr::null_mut(),
+            slot: 0 as *mut cte,
         };
     }
 
