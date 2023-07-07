@@ -2,7 +2,7 @@
 src/sel4-Rust/sel4-Rust/target/
 *.elf
 *.bin
-target/
+src/sel4-Rust/sel4-Rust/target/
 # Ignore executable files without extensions
 *
 !*/

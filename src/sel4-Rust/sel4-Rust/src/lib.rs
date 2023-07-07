@@ -7,7 +7,7 @@ mod lang_items;
 mod kernel;
 mod types;
 pub mod libsel4;
-#[macro_export]
+#[macro_use]
 pub mod object;
 pub mod failures;
 pub mod model;
@@ -15,3 +15,4 @@ pub mod machine;
 #[macro_use]
 pub mod util;
 pub mod inlines;
+//pub mod cnode;

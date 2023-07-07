@@ -4,14 +4,15 @@
 #![allow(non_snake_case)]
 use core::intrinsics::{likely, unlikely};
 
-use super::thread::*;
-use crate::CTE_PTR;
+
 use crate::failures::*;
 use crate::inlines::*;
 use crate::machine::*;
 use crate::model::statedata::*;
 use crate::object::*;
 use crate::types::*;
+use crate::CTE_PTR;
+use crate::MASK;
 
 //from cspace.h
 #[derive(Clone, Copy)]
@@ -58,7 +59,7 @@ pub type resolveAddressBits_ret_t = resolveAddressBits_ret;
 
 #[no_mangle]
 pub extern "C" fn lookupCap(thread: *mut tcb_t, cPtr: u64) -> lookupCap_ret_t {
-    let mut lu_ret = lookupSlot(thread, cPtr);
+    let lu_ret = lookupSlot(thread, cPtr);
     if lu_ret.status != 0u64 {
         return lookupCap_ret_t {
             status: lu_ret.status,
@@ -75,7 +76,7 @@ pub extern "C" fn lookupCap(thread: *mut tcb_t, cPtr: u64) -> lookupCap_ret_t {
 
 #[no_mangle]
 pub extern "C" fn lookupCapAndSlot(thread: *mut tcb_t, cPtr: u64) -> lookupCapAndSlot_ret_t {
-    let mut lu_ret = lookupSlot(thread, cPtr);
+    let lu_ret = lookupSlot(thread, cPtr);
     if lu_ret.status != 0u64 {
         return lookupCapAndSlot_ret_t {
             status: lu_ret.status,
@@ -94,7 +95,7 @@ pub extern "C" fn lookupCapAndSlot(thread: *mut tcb_t, cPtr: u64) -> lookupCapAn
 
 #[no_mangle]
 pub extern "C" fn lookupSlot(thread: *mut tcb_t, capptr: u64) -> lookupSlot_raw_ret_t {
-    let mut threadRoot: cap;
+    let threadRoot: cap;
     unsafe {
         threadRoot = (*TCB_PTR_CTE_PTR(thread, 0)).cap;
     }
@@ -112,8 +113,10 @@ pub extern "C" fn lookupSlotForCNodeOp(
     capptr: u64,
     depth: u64,
 ) -> lookupSlot_ret_t {
-    let res_ret: resolveAddressBits_ret_t;
-    let mut ret: lookupSlot_ret_t;
+    let mut ret= lookupSlot_ret_t{
+        status:0,
+        slot:0 as *mut cte
+    };
 
     ret.slot = 0 as *mut cte;
     if cap_get_capType(root) != 10 as u64 {
@@ -179,12 +182,6 @@ pub extern "C" fn lookupPivotSlot(root: cap_t, capptr: u64, depth: u64) -> looku
     lookupSlotForCNodeOp(1u64, root, capptr, depth)
 }
 
-macro_rules! MASK {
-    ($x:expr) => {
-        (1u64 << ($x)) - 1u64
-    };
-}
-
 #[no_mangle]
 pub extern "C" fn resolveAddressBits(
     mut nodeCap: cap_t,
@@ -218,13 +215,15 @@ pub extern "C" fn resolveAddressBits(
             return ret;
         }
         if levelBits > n_bits {
-            current_lookup_fault = lookup_fault_depth_mismatch_new(levelBits, n_bits);
+            unsafe {
+                current_lookup_fault = lookup_fault_depth_mismatch_new(levelBits, n_bits);
+            }
             ret.status = exception::EXCEPTION_LOOKUP_FAULT as u64;
             return ret;
         }
         let offset: u64 = (capptr >> (n_bits - levelBits)) & MASK!(radixBits);
-        
-        let slot = CTE_PTR!(cap_cnode_cap_get_capCNodePtr(nodeCap)) + offset;
+
+        let slot = (cap_cnode_cap_get_capCNodePtr(nodeCap) + offset) as *mut cte;
         if n_bits <= levelBits {
             ret.status = 0u64;
             ret.slot = slot;
@@ -232,7 +231,9 @@ pub extern "C" fn resolveAddressBits(
             return ret;
         }
         n_bits -= levelBits;
-        nodeCap = (*slot).cap;
+        unsafe{
+            nodeCap = (*slot).cap;
+        }
         if cap_get_capType(nodeCap) != cap_tag_t::cap_cnode_cap as u64 {
             ret.status = exception::EXCEPTION_NONE as u64;
             ret.slot = slot;

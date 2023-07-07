@@ -21,6 +21,7 @@ Including contents from:
 
 /* Capability table entry (CTE) */
 #[derive(Clone,Copy)]
+#[repr(C)]
 pub struct cte {
     pub cap: cap_t,
     pub cteMDBNode: mdb_node_t,
@@ -28,6 +29,8 @@ pub struct cte {
 pub type cte_t = cte;
 
 /* TCB: size >= 18 words + sizeof(arch_tcb_t) + 1 word on MCS (aligned to nearest power of 2) */
+#[derive(Clone,Copy)]
+#[repr(C)]
 pub struct tcb {
     /* arch specific tcb state (including context)*/
     pub tcbArch: arch_tcb_t,
@@ -76,7 +79,7 @@ pub type tcb_t = tcb;
 #[macro_export]
 macro_rules! CTE_PTR {
     ($r:expr) => {
-        (r as *mut cte_t)
+        (($r) as *mut cte_t)
     };
 }
 
@@ -133,6 +136,7 @@ pub struct thread_state {
 pub type thread_state_t = thread_state;
 
 #[derive(Clone,Copy)]
+#[repr(C)]
 pub struct cap {
     pub words: [u64; 2],
 }
@@ -282,7 +286,9 @@ pub type  cap_tag_t=cap_tag;
 
 #[inline(always)]
 pub fn cap_null_cap_new()->cap_t{
-    let mut cap:cap_t;
+    let mut cap=cap_t{
+        words:[0,0]
+    };
 
     /* fail if user has passed bits that we will override */  
     //assert(((uint64_t)cap_null_cap & ~0x1full) == ((1 && ((uint64_t)cap_null_cap & (1ull << 47))) ? 0x0 : 0));
@@ -300,7 +306,9 @@ pub fn cap_get_capType(cap:cap_t)->u64 {
 
 #[inline(always)]
 pub fn lookup_fault_invalid_root_new()->lookup_fault_t {
-    let mut lookup_fault:lookup_fault_t;
+    let mut lookup_fault=lookup_fault_t{
+        words:[0,0]
+    };
 
     /* fail if user has passed bits that we will override */  
     //assert(((uint64_t)lookup_fault_invalid_root & ~0x3ull) == ((1 && ((uint64_t)lookup_fault_invalid_root & (1ull << 47))) ? 0x0 : 0));
@@ -314,7 +322,9 @@ pub fn lookup_fault_invalid_root_new()->lookup_fault_t {
 
  #[inline(always)]
 pub fn lookup_fault_depth_mismatch_new(bitsFound:u64, bitsLeft:u64)->lookup_fault_t {
-    let mut lookup_fault:lookup_fault_t;
+    let mut lookup_fault=lookup_fault_t{
+        words:[0,0]
+    };
 
     /* fail if user has passed bits that we will override */  
     // assert((bitsFound & ~0x7full) == ((1 && (bitsFound & (1ull << 47))) ? 0x0 : 0));  
@@ -363,7 +373,9 @@ pub fn cap_cnode_cap_get_capCNodeGuard(cap:cap_t)->u64 {
 
 #[inline(always)]
 pub fn lookup_fault_guard_mismatch_new( guardFound:u64,  bitsLeft:u64,  bitsFound:u64)->lookup_fault_t {
-    let mut lookup_fault:lookup_fault_t;
+    let mut lookup_fault=lookup_fault_t{
+        words:[0,0]
+    };
 
     /* fail if user has passed bits that we will override */ 
     // assert((bitsLeft & ~0x7full) == ((1 && (bitsLeft & (1ull << 47))) ? 0x0 : 0));  
@@ -378,4 +390,18 @@ pub fn lookup_fault_guard_mismatch_new( guardFound:u64,  bitsLeft:u64,  bitsFoun
         | guardFound << 0;
 
     lookup_fault
+}
+
+#[inline(always)]
+pub fn cap_cnode_cap_get_capCNodePtr( cap:cap_t) ->u64{
+    let mut ret:u64;
+    // assert(((cap.words[0] >> 59) & 0x1f) ==
+    //        cap_cnode_cap);
+
+    ret = (cap.words[0] & 0x7fffffffffffu64) << 1;
+    /* Possibly sign extend */
+    if likely((ret & (1u64 << (47)))!=0) {
+        ret |= 0xffff000000000000;
+    }
+    return ret;
 }
