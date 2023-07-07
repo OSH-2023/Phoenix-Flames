@@ -5,6 +5,7 @@
 use core::intrinsics::{likely, unlikely};
 
 use super::thread::*;
+use crate::CTE_PTR;
 use crate::failures::*;
 use crate::inlines::*;
 use crate::machine::*;
@@ -196,7 +197,7 @@ pub extern "C" fn resolveAddressBits(
         bitsRemaining: n_bits,
     };
     if cap_get_capType(nodeCap) != cap_tag_t::cap_cnode_cap as u64 {
-        unsafe{
+        unsafe {
             current_lookup_fault = lookup_fault_invalid_root_new();
         }
         ret.status = exception::EXCEPTION_LOOKUP_FAULT as u64;
@@ -210,7 +211,7 @@ pub extern "C" fn resolveAddressBits(
         let capGuard = cap_cnode_cap_get_capCNodeGuard(nodeCap);
         let guard: u64 = (capptr >> ((n_bits - guardBits) & MASK!(wordRadix))) & MASK!(guardBits);
         if guardBits > n_bits || guard != capGuard {
-            unsafe{
+            unsafe {
                 current_lookup_fault = lookup_fault_guard_mismatch_new(capGuard, n_bits, guardBits);
             }
             ret.status = exception::EXCEPTION_LOOKUP_FAULT as u64;
@@ -222,7 +223,8 @@ pub extern "C" fn resolveAddressBits(
             return ret;
         }
         let offset: u64 = (capptr >> (n_bits - levelBits)) & MASK!(radixBits);
-        let slot = CTE_PTR(cap_cnode_cap_get_capCNodePtr(nodeCap)) + offset;
+        
+        let slot = CTE_PTR!(cap_cnode_cap_get_capCNodePtr(nodeCap)) + offset;
         if n_bits <= levelBits {
             ret.status = 0u64;
             ret.slot = slot;

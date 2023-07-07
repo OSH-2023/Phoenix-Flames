@@ -73,6 +73,13 @@ pub struct tcb {
 }
 pub type tcb_t = tcb;
 
+#[macro_export]
+macro_rules! CTE_PTR {
+    ($r:expr) => {
+        (r as *mut cte_t)
+    };
+}
+
 pub fn TCB_PTR_CTE_PTR(p:*mut tcb_t, i:u64) -> *mut cte_t{
     ((((p as word_t) & (!MASK!(10))) as u64) + i) as *mut cte_t
 }
