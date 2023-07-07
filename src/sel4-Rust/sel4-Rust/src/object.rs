@@ -5,7 +5,7 @@
 #![allow(non_upper_case_globals)]
 #![allow(non_snake_case)]
 
-
+use core::intrinsics::{likely, unlikely};
 use crate::machine::registerset::*;
 use crate::types::*;
 use crate::MASK;
@@ -239,7 +239,41 @@ pub fn notification_ptr_set_ntfnBoundTCB(notification_ptr:*mut notification_t, v
     }
 }
 
+#[derive(Clone, Copy)]
+pub enum lookup_fault_tag {
+    lookup_fault_invalid_root = 0,
+    lookup_fault_missing_capability = 1,
+    lookup_fault_depth_mismatch = 2,
+    lookup_fault_guard_mismatch = 3
+}
+pub type lookup_fault_tag_t=lookup_fault_tag;
 
+#[derive(Clone, Copy)]
+pub enum cap_tag {
+    cap_null_cap = 0,
+    cap_untyped_cap = 2,
+    cap_endpoint_cap = 4,
+    cap_notification_cap = 6,
+    cap_reply_cap = 8,
+    cap_cnode_cap = 10,
+    cap_thread_cap = 12,
+    cap_irq_control_cap = 14,
+    cap_irq_handler_cap = 16,
+    cap_zombie_cap = 18,
+    cap_domain_cap = 20,
+    cap_frame_cap = 1,
+    cap_page_table_cap = 3,
+    cap_page_directory_cap = 5,
+    cap_pdpt_cap = 7,
+    cap_pml4_cap = 9,
+    cap_asid_control_cap = 11,
+    cap_asid_pool_cap = 13,
+    cap_io_port_cap = 19,
+    cap_io_port_control_cap = 31
+}
+pub type  cap_tag_t=cap_tag;
+
+#[inline(always)]
 pub fn cap_null_cap_new()->cap_t{
     let mut cap:cap_t;
 
@@ -254,7 +288,7 @@ pub fn cap_null_cap_new()->cap_t{
 
 #[inline(always)]
 pub fn cap_get_capType(cap:cap_t)->u64 {
-    return (cap.words[0] >> 59) & 0x1fu64;
+    (cap.words[0] >> 59) & 0x1fu64
 }
 
 #[inline(always)]
@@ -268,5 +302,73 @@ pub fn lookup_fault_invalid_root_new()->lookup_fault_t {
         | (0 as u64 & 0x3u64) << 0;
     lookup_fault.words[1] = 0;
 
-    return lookup_fault;
+    lookup_fault
+}
+
+ #[inline(always)]
+pub fn lookup_fault_depth_mismatch_new(bitsFound:u64, bitsLeft:u64)->lookup_fault_t {
+    let mut lookup_fault:lookup_fault_t;
+
+    /* fail if user has passed bits that we will override */  
+    // assert((bitsFound & ~0x7full) == ((1 && (bitsFound & (1ull << 47))) ? 0x0 : 0));  
+    // assert((bitsLeft & ~0x7full) == ((1 && (bitsLeft & (1ull << 47))) ? 0x0 : 0));  
+    // assert(((uint64_t)lookup_fault_depth_mismatch & ~0x3ull) == ((1 && ((uint64_t)lookup_fault_depth_mismatch & (1ull << 47))) ? 0x0 : 0));
+
+    lookup_fault.words[0] = 0
+        | (bitsFound & 0x7fu64) << 9
+        | (bitsLeft & 0x7fu64) << 2
+        | (lookup_fault_tag::lookup_fault_depth_mismatch as u64& 0x3u64) << 0;
+    lookup_fault.words[1] = 0;
+
+    lookup_fault
+}
+
+#[inline(always)]
+pub fn cap_cnode_cap_get_capCNodeRadix(cap:cap_t)->u64 {
+    let mut ret:u64;
+    // assert(((cap.words[0] >> 59) & 0x1f) ==
+    //        cap_cnode_cap);
+
+    ret = (cap.words[0] & 0x1f800000000000u64) >> 47;
+    ret
+}
+
+#[inline(always)]
+pub fn cap_cnode_cap_get_capCNodeGuardSize(cap:cap_t)->u64 {
+    let mut ret:u64;
+    // assert(((cap.words[0] >> 59) & 0x1f) ==
+    //        cap_cnode_cap);
+
+    ret = (cap.words[0] & 0x7e0000000000000u64) >> 53;
+    ret
+}
+
+#[inline(always)]
+pub fn cap_cnode_cap_get_capCNodeGuard(cap:cap_t)->u64 {
+    let mut ret:u64;
+    // assert(((cap.words[0] >> 59) & 0x1f) ==
+    //        cap_cnode_cap);
+
+    ret = (cap.words[1] & 0xffffffffffffffffu64) >> 0;
+    ret
+}
+
+
+#[inline(always)]
+pub fn lookup_fault_guard_mismatch_new( guardFound:u64,  bitsLeft:u64,  bitsFound:u64)->lookup_fault_t {
+    let mut lookup_fault:lookup_fault_t;
+
+    /* fail if user has passed bits that we will override */ 
+    // assert((bitsLeft & ~0x7full) == ((1 && (bitsLeft & (1ull << 47))) ? 0x0 : 0));  
+    // assert((bitsFound & ~0x7full) == ((1 && (bitsFound & (1ull << 47))) ? 0x0 : 0));  
+    // assert(((uint64_t)lookup_fault_guard_mismatch & ~0x3ull) == ((1 && ((uint64_t)lookup_fault_guard_mismatch & (1ull << 47))) ? 0x0 : 0));
+
+    lookup_fault.words[0] = 0
+        | (bitsLeft & 0x7fu64) << 9
+        | (bitsFound & 0x7fu64) << 2
+        | (lookup_fault_tag::lookup_fault_guard_mismatch as u64& 0x3u64) << 0;
+    lookup_fault.words[1] = 0
+        | guardFound << 0;
+
+    lookup_fault
 }

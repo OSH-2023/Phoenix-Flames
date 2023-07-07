@@ -112,7 +112,7 @@ pub extern "C" fn lookupSlotForCNodeOp(
     depth: u64,
 ) -> lookupSlot_ret_t {
     let res_ret: resolveAddressBits_ret_t;
-    let ret: lookupSlot_ret_t;
+    let mut ret: lookupSlot_ret_t;
 
     ret.slot = 0 as *mut cte;
     if cap_get_capType(root) != 10 as u64 {
@@ -140,26 +140,27 @@ pub extern "C" fn lookupSlotForCNodeOp(
 
     let res_ret = resolveAddressBits(root, capptr, depth);
     if res_ret.status != 0u64 {
-        current_syscall_error.type_ = seL4_Error::seL4_FailedLookup as u64;
-        current_syscall_error.failedLookupWasSource = isSource;
-        return lookupSlot_ret_t {
-            status: exception::EXCEPTION_SYSCALL_ERROR as u64,
-            slot: exception::EXCEPTION_SYSCALL_ERROR as u64,
-        };
+        unsafe {
+            current_syscall_error.error_type = seL4_Error::seL4_FailedLookup as u64;
+            current_syscall_error.failedLookupWasSource = isSource;
+        }
+        /* current_lookup_fault will have been set by resolveAddressBits */
+        ret.status = exception::EXCEPTION_SYSCALL_ERROR as u64;
+        return ret;
     }
     if res_ret.bitsRemaining != 0 {
-        current_syscall_error.type_ = seL4_Error::seL4_FailedLookup as u64;
-        current_syscall_error.failedLookupWasSource = isSource;
-        current_lookup_fault = lookup_fault_depth_mismatch_new(0, res_ret.bitsRemaining);
-        return lookupSlot_ret_t {
-            status: exception::EXCEPTION_SYSCALL_ERROR as u64,
-            slot: exception::EXCEPTION_SYSCALL_ERROR as u64,
-        };
+        unsafe {
+            current_syscall_error.error_type = seL4_Error::seL4_FailedLookup as u64;
+            current_syscall_error.failedLookupWasSource = isSource;
+            current_lookup_fault = lookup_fault_depth_mismatch_new(0, res_ret.bitsRemaining);
+        }
+        ret.status = exception::EXCEPTION_SYSCALL_ERROR as u64;
+        return ret;
     }
-    lookupSlot_ret_t {
-        status: 0u64,
-        slot: res_ret.slot,
-    }
+
+    ret.slot = res_ret.slot;
+    ret.status = exception::EXCEPTION_NONE as u64;
+    ret
 }
 
 #[no_mangle]
@@ -191,11 +192,13 @@ pub extern "C" fn resolveAddressBits(
 ) -> resolveAddressBits_ret_t {
     let mut ret = resolveAddressBits_ret_t {
         status: 0u64,
-        slot: std::ptr::null_mut(),
+        slot: 0 as *mut cte,
         bitsRemaining: n_bits,
     };
     if cap_get_capType(nodeCap) != cap_tag_t::cap_cnode_cap as u64 {
-        current_lookup_fault = lookup_fault_invalid_root_new();
+        unsafe{
+            current_lookup_fault = lookup_fault_invalid_root_new();
+        }
         ret.status = exception::EXCEPTION_LOOKUP_FAULT as u64;
         return ret;
     }
@@ -207,7 +210,9 @@ pub extern "C" fn resolveAddressBits(
         let capGuard = cap_cnode_cap_get_capCNodeGuard(nodeCap);
         let guard: u64 = (capptr >> ((n_bits - guardBits) & MASK!(wordRadix))) & MASK!(guardBits);
         if guardBits > n_bits || guard != capGuard {
-            current_lookup_fault = lookup_fault_guard_mismatch_new(capGuard, n_bits, guardBits);
+            unsafe{
+                current_lookup_fault = lookup_fault_guard_mismatch_new(capGuard, n_bits, guardBits);
+            }
             ret.status = exception::EXCEPTION_LOOKUP_FAULT as u64;
             return ret;
         }
