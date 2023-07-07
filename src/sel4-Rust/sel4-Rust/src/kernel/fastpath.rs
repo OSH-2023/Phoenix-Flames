@@ -246,7 +246,7 @@ pub fn fastpath_call(
         let fault_type = seL4_Fault_get_seL4_FaultType(&(*((use_ksCurThread))).tcbFault);
         // 不可以有额外能力，长度不符合要求，没有保存的错误，否则转入slowpath
         let fault_type = seL4_Fault_get_seL4_FaultType(&(*((use_ksCurThread))).tcbFault);
-        if unlikely(fastpath_mi_check(msgInfo) || 
+        if unlikely(fastpath_mi_check(msgInfo)!=0 || 
                     fault_type != use_seL4_Fault_tag.seL4_Fault_NullFault as u64) {
             slowpath(use_syscall.SysCall);
         }
