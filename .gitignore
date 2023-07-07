@@ -1,5 +1,5 @@
 .vscode
-target
+*/target/*
 *.elf
 # Ignore executable files without extensions
 *
