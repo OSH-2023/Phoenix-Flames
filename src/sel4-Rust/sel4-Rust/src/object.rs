@@ -19,7 +19,7 @@ Including contents from:
 //1. from object/structures.h
 
 /* Capability table entry (CTE) */
-#[derive(Clone)]
+#[derive(Clone,Copy)]
 pub struct cte {
     pub cap: cap_t,
     pub cteMDBNode: mdb_node_t,
@@ -73,13 +73,13 @@ pub struct tcb {
 pub type tcb_t = tcb;
 
 // 2. from arch/object/structures.h
-#[derive(Clone)]
+#[derive(Clone,Copy)]
 pub struct arch_tcb {
     pub tcbContext: user_context_t,
 }
 pub type arch_tcb_t = arch_tcb;
 
-#[derive(Clone)]
+#[derive(Clone,Copy)]
 pub enum notification_state{
     NtfnState_Idle = 0,
     NtfnState_Waiting = 1,
@@ -87,7 +87,7 @@ pub enum notification_state{
 }
 pub type notification_state_t = word_t;
 
-#[derive(Clone)]
+#[derive(Clone,Copy)]
 pub enum _thread_state{
     ThreadState_Inactive = 0,
     ThreadState_Running,
@@ -101,7 +101,7 @@ pub enum _thread_state{
 pub type _thread_state_t = word_t;
 
 // 3. from arch/object/structures_gen.h
-#[derive(Clone)]
+#[derive(Clone,Copy)]
 pub struct mdb_node {
     pub words: [u64; 2],
 }
@@ -114,25 +114,25 @@ pub struct notification {
 }
 pub type notification_t=notification;
 
-#[derive(Clone)]
+#[derive(Clone,Copy)]
 pub struct thread_state {
     pub words: [u64; 3],
 }
 type thread_state_t = thread_state;
 
-#[derive(Clone)]
+#[derive(Clone,Copy)]
 pub struct cap {
     pub words: [u64; 2],
 }
 pub type cap_t = cap;
 
-#[derive(Clone)]
+#[derive(Clone,Copy)]
 pub struct lookup_fault {
     pub words:[u64;2]
 }
 type lookup_fault_t=lookup_fault ;
 
-#[derive(Clone)]
+#[derive(Clone,Copy)]
 pub struct seL4_Fault {
     pub words:[u64;2]
 }

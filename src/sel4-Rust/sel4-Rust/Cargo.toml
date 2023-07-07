@@ -10,7 +10,7 @@ name = "sel4_rust"
 crate-type = ["staticlib"]
 
 [dependencies]
-
+lazy_static = { version = "1.4.0", features = ["spin_no_std"] }
 
 [target.x86_64-unknown-none]
 rustflags = [

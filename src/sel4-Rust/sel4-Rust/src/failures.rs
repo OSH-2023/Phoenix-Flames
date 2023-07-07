@@ -14,7 +14,7 @@ pub use crate::libsel4::errors::*;
 use crate::types::basic_types::*;
 
 //from api/failures.h
-#[derive(Clone)]
+#[derive(Clone,Copy)]
 pub enum exception {
     EXCEPTION_NONE,
     EXCEPTION_FAULT,
@@ -26,7 +26,7 @@ pub type exception_t = word_t;
 
 pub type syscall_error_type_t = word_t;
 
-#[derive(Clone)]
+#[derive(Clone,Copy)]
 pub struct syscall_error {
     pub invalidArgumentNumber: word_t,
     pub invalidCapNumber: word_t,
