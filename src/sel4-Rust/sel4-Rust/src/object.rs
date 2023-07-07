@@ -231,3 +231,16 @@ pub fn notification_ptr_set_ntfnBoundTCB(notification_ptr:*mut notification_t, v
         (*notification_ptr).words[3] |= (v64>>0) & 0x7fffffffff;
     }
 }
+
+
+pub fn cap_null_cap_new()->cap_t{
+    let cap:cap_t;
+
+    /* fail if user has passed bits that we will override */  
+    //assert(((uint64_t)cap_null_cap & ~0x1full) == ((1 && ((uint64_t)cap_null_cap & (1ull << 47))) ? 0x0 : 0));
+
+    cap.words[0] = 0 | ((cap_null_cap as u64) & 0x1full) << 59;
+    cap.words[1] = 0;
+
+    cap;
+}
