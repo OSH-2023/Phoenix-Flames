@@ -30,46 +30,46 @@ pub type cte_t = cte;
 /* TCB: size >= 18 words + sizeof(arch_tcb_t) + 1 word on MCS (aligned to nearest power of 2) */
 pub struct tcb {
     /* arch specific tcb state (including context)*/
-    tcbArch: arch_tcb_t,
+    pub tcbArch: arch_tcb_t,
 
     /* Thread state, 3 words */
-    tcbState: thread_state_t,
+    pub tcbState: thread_state_t,
 
     /* Notification that this TCB is bound to. If this is set, when this TCB waits on
      * any sync endpoint, it may receive a signal from a Notification object.
      * 1 word*/
-    tcbBoundNotification: *mut notification_t,
+     pub tcbBoundNotification: *mut notification_t,
 
     /* Current fault, 2 words */
-    tcbFault: seL4_Fault_t,
+    pub tcbFault: seL4_Fault_t,
 
     /* Current lookup failure, 2 words */
-    tcbLookupFailure: lookup_fault_t,
+    pub tcbLookupFailure: lookup_fault_t,
 
     /* Domain, 1 byte (padded to 1 word) */
-    tcbDomain: dom_t,
+    pub tcbDomain: dom_t,
 
     /*  maximum controlled priority, 1 byte (padded to 1 word) */
-    tcbMCP: prio_t,
+    pub tcbMCP: prio_t,
 
     /* Priority, 1 byte (padded to 1 word) */
-    tcbPriority: prio_t,
+    pub tcbPriority: prio_t,
 
     /* Timeslice remaining, 1 word */
-    tcbTimeSlice: word_t,
+    pub tcbTimeSlice: word_t,
 
     /* Capability pointer to thread fault handler, 1 word */
-    tcbFaultHandler: cptr_t,
+    pub tcbFaultHandler: cptr_t,
 
     /* userland virtual address of thread IPC buffer, 1 word */
-    tcbIPCBuffer: word_t,
+    pub tcbIPCBuffer: word_t,
 
     /* Previous and next pointers for scheduler queues , 2 words */
-    tcbSchedNext: *const tcb,
-    tcbSchedPrev: *const tcb,
+    pub tcbSchedNext: *const tcb,
+    pub tcbSchedPrev: *const tcb,
     /* Preivous and next pointers for endpoint and notification queues, 2 words */
-    tcbEPNext: *mut tcb,
-    tcbEPPrev: *const tcb,
+    pub tcbEPNext: *mut tcb,
+    pub tcbEPPrev: *const tcb,
 }
 pub type tcb_t = tcb;
 
