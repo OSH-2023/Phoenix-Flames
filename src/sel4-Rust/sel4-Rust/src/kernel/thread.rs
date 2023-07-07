@@ -1,8 +1,8 @@
-
-
 //thread.c
 
-pub type prio_t = word_t;
+use crate::types::*;
+use crate::object::*;
+
 #[repr(C)]
 pub struct tcb_t {
     pub tcbArch: arch_tcb_t,
@@ -10,11 +10,11 @@ pub struct tcb_t {
     pub tcbBoundNotification: *mut notification_t,
     pub tcbFault: seL4_Fault_t,
     pub tcbLookupFailure: lookup_fault_t,
-    pub tcbDomain: types::dom_t,
-    pub tcbMCP: types::prio_t,
-    pub tcbPriority: types::prio_t,
+    pub tcbDomain: dom_t,
+    pub tcbMCP: prio_t,
+    pub tcbPriority: prio_t,
     pub tcbTimeSlice: word_t,
-    pub tcbFaultHandler: types::cptr_t,
+    pub tcbFaultHandler: cptr_t,
     pub tcbIPCBuffer: word_t,
 
     pub tcbSchedNext: *mut tcb_t,

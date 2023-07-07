@@ -118,7 +118,7 @@ pub type notification_t=notification;
 pub struct thread_state {
     pub words: [u64; 3],
 }
-type thread_state_t = thread_state;
+pub type thread_state_t = thread_state;
 
 #[derive(Clone,Copy)]
 pub struct cap {
@@ -130,7 +130,7 @@ pub type cap_t = cap;
 pub struct lookup_fault {
     pub words:[u64;2]
 }
-type lookup_fault_t=lookup_fault ;
+pub type lookup_fault_t=lookup_fault ;
 
 #[derive(Clone,Copy)]
 pub struct seL4_Fault {
