@@ -1,5 +1,5 @@
 .vscode
-*/target/*
+src/sel4-Rust/sel4-Rust/target/
 *.elf
 # Ignore executable files without extensions
 *
