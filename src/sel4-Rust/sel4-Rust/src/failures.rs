@@ -8,7 +8,7 @@
 Including contents from:
 api/failures.h
  */
-
+use crate::kernel::fastpath::seL4_Fault_t;
 pub use crate::libsel4::constants::*;
 pub use crate::libsel4::errors::*;
 use crate::types::basic_types::*;
@@ -39,6 +39,8 @@ pub struct syscall_error {
     pub error_type: syscall_error_type_t,
 }
 pub type syscall_error_t = syscall_error;
+
+static mut current_fault:seL4_Fault_t = 0;
 
 //to be done
 /*
