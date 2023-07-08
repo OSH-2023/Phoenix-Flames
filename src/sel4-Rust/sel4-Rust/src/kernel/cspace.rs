@@ -182,65 +182,72 @@ pub type resolveAddressBits_ret_t = resolveAddressBits_ret;
 //     lookupSlotForCNodeOp(1u64, root, capptr, depth)
 // }
 
-// #[no_mangle]
-// pub extern "C" fn resolveAddressBits(
-//     mut nodeCap: cap_t,
-//     capptr: u64,
-//     mut n_bits: u64,
-// ) -> resolveAddressBits_ret_t {
-//     let mut ret = resolveAddressBits_ret_t {
-//         status: 0u64,
-//         slot: 0 as *mut cte,
-//         bitsRemaining: n_bits,
-//     };
-//     if cap_get_capType(nodeCap) != cap_tag_t::cap_cnode_cap as u64 {
-//         unsafe {
-//             current_lookup_fault = lookup_fault_invalid_root_new();
-//         }
-//         ret.status = exception::EXCEPTION_LOOKUP_FAULT as u64;
-//         return ret;
-//     }
+#[no_mangle]
+pub extern "C" fn resolveAddressBits(
+    mut nodeCap: cap_t,
+    capptr: u64,
+    mut n_bits: u64,
+) -> resolveAddressBits_ret_t {
+    let mut ret = resolveAddressBits_ret_t {
+        status: 0u64,
+        slot: 0 as *mut cte,
+        bitsRemaining: n_bits,
+    };
+    if cap_get_capType(nodeCap) != cap_tag_t::cap_cnode_cap as u64 {
+        unsafe {
+            current_lookup_fault = lookup_fault_invalid_root_new();
+        }
+        ret.status = exception::EXCEPTION_LOOKUP_FAULT as u64;
+        return ret;
+    }
 
-//     loop {
-//         let radixBits = cap_cnode_cap_get_capCNodeRadix(nodeCap);
-//         let guardBits = cap_cnode_cap_get_capCNodeGuardSize(nodeCap);
-//         let levelBits = radixBits + guardBits;
-//         let capGuard = cap_cnode_cap_get_capCNodeGuard(nodeCap);
-//         let guard: u64 = (capptr >> ((n_bits - guardBits) & MASK!(wordRadix))) & MASK!(guardBits);
-//         if guardBits > n_bits || guard != capGuard {
-//             unsafe {
-//                 current_lookup_fault = lookup_fault_guard_mismatch_new(capGuard, n_bits, guardBits);
-//             }
-//             ret.status = exception::EXCEPTION_LOOKUP_FAULT as u64;
-//             return ret;
-//         }
-//         if levelBits > n_bits {
-//             unsafe {
-//                 current_lookup_fault = lookup_fault_depth_mismatch_new(levelBits, n_bits);
-//             }
-//             ret.status = exception::EXCEPTION_LOOKUP_FAULT as u64;
-//             return ret;
-//         }
-//         let offset: u64 = (capptr >> (n_bits - levelBits)) & MASK!(radixBits);
+    loop {
+        let radixBits = cap_cnode_cap_get_capCNodeRadix(nodeCap);
+        let guardBits = cap_cnode_cap_get_capCNodeGuardSize(nodeCap);
+        let levelBits = radixBits + guardBits;
+        
+        /* Haskell error: "All CNodes must resolve bits" */
+        assert!(levelBits != 0);
 
-//         let slot = (cap_cnode_cap_get_capCNodePtr(nodeCap) + offset) as *mut cte;
-//         if n_bits <= levelBits {
-//             ret.status = 0u64;
-//             ret.slot = slot;
-//             ret.bitsRemaining = 0;
-//             return ret;
-//         }
-//         n_bits -= levelBits;
-//         unsafe{
-//             nodeCap = (*slot).cap;
-//         }
-//         if cap_get_capType(nodeCap) != cap_tag_t::cap_cnode_cap as u64 {
-//             ret.status = exception::EXCEPTION_NONE as u64;
-//             ret.slot = slot;
-//             ret.bitsRemaining = n_bits;
-//             return ret;
-//         }
-//     }
-//     ret.status = 0u64;
-//     ret
-// }
+        let capGuard = cap_cnode_cap_get_capCNodeGuard(nodeCap);
+        let guard: u64 = (capptr >> ((n_bits - guardBits) & MASK!(wordRadix))) & MASK!(guardBits);
+        
+        if guardBits > n_bits || guard != capGuard {
+            unsafe {
+                current_lookup_fault = lookup_fault_guard_mismatch_new(capGuard, n_bits, guardBits);
+            }
+            ret.status = exception::EXCEPTION_LOOKUP_FAULT as u64;
+            return ret;
+        }
+        if levelBits > n_bits {
+            unsafe {
+                current_lookup_fault = lookup_fault_depth_mismatch_new(levelBits, n_bits);
+            }
+            ret.status = exception::EXCEPTION_LOOKUP_FAULT as u64;
+            return ret;
+        }
+        let offset: u64 = (capptr >> (n_bits - levelBits)) & MASK!(radixBits);
+
+        let slot = (cap_cnode_cap_get_capCNodePtr(nodeCap) + offset) as *mut cte;
+        if n_bits == levelBits {
+            ret.status = exception::EXCEPTION_NONE as u64;
+            ret.slot = slot;
+            ret.bitsRemaining = 0;
+            return ret;
+        }
+
+        n_bits -= levelBits;
+        unsafe{
+            nodeCap = (*slot).cap;
+        }
+
+        if cap_get_capType(nodeCap) != cap_tag_t::cap_cnode_cap as u64 {
+            ret.status = exception::EXCEPTION_NONE as u64;
+            ret.slot = slot;
+            ret.bitsRemaining = n_bits;
+            return ret;
+        }
+    }
+
+    panic!("Unreachable!");
+}
