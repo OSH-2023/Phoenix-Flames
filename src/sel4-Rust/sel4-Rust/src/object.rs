@@ -197,7 +197,7 @@ pub fn notification_ptr_get_ntfnQueue_head(notification_ptr:*mut notification_t)
     unsafe{
         ret = ((*notification_ptr).words[0] & 0xfffffffffe000000u64) >> 25;
     }
-    if (1 & (ret & (1u64 << (38)))) != 0 {
+    if (true && (ret & (1u64 << (38)))) != 0 {
         ret = ret | 0xffffff8000000000;
     }
     ret
@@ -216,7 +216,7 @@ pub fn notification_ptr_get_ntfnQueue_tail(notification_ptr:*mut notification_t)
     unsafe{
         ret = ((*notification_ptr).words[0] & 0xfffffffffe000000u64) >> 25;
     }
-    if (1 & (ret & (1u64 << (38)))) != 0 {
+    if (true && (ret & (1u64 << (38)))) != 0 {
         ret |= 0xffffff8000000000;
     }
     ret
@@ -235,7 +235,7 @@ pub fn notification_ptr_get_ntfnBoundTCB(notification_ptr:*mut notification_t) -
     unsafe{
         ret = ((*notification_ptr).words[3] & 0x7fffffffffu64 ) << 0;
     }
-    if (1 & (ret & (1u64 << (38)))) != 0 {
+    if (true && (ret & (1u64 << (38)))) != 0 {
         ret |= 0xffffff8000000000;
     }
     ret
@@ -246,7 +246,7 @@ pub fn notification_ptr_get_ntfnMsgIdentifier(notification_ptr: *mut notificatio
     unsafe{
         ret = ((*notification_ptr).words[2] & 0xffffffffffffffffu64) >> 0;
     }
-    if (1 & (ret & (1u64 << (38)))) != 0 {
+    if (true && (ret & (1u64 << (38)))) != 0 {
         ret |= 0x0;
     }
     ret
@@ -428,6 +428,23 @@ pub fn cap_cnode_cap_get_capCNodePtr( cap:cap_t) ->u64{
 pub fn thread_state_ptr_get_tsType(thread_state_ptr:*mut thread_state_t) -> u64 {
     unsafe{
         let ret:u64 = ((*thread_state_ptr).words[0] & 0xfu64) >> 0;
+    }
+}
+
+#[inline(always)]
+pub fn cap_notification_cap_get_capNtfnPtr(cap:cap_t) -> u64 {
+    let mut ret:u64 = (cap.words[0] & 0x7fffffffffu64);
+    if true && (ret & (1u64 << (38))) {
+        ret |= 0xffffff8000000000;
+    }
+    ret
+}
+
+#[inline(always)]
+pub fn thread_state_ptr_set_blockingObject(thread_state_ptr:*mut thread_state_t, v64:u64) {
+    unsafe{
+        (*thread_state_ptr).words[0] &= !0x7ffffffff0u64;
+        (*thread_state_ptr).words[0] |= (v64 >> 0) & 0x7ffffffff0;
     }
 }
 

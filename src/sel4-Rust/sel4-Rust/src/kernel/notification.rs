@@ -184,3 +184,4 @@ pub fn ntfn_set_active(ntfnPtr: *mut notification_t, badge: word_t){
     notification_ptr_set_state(ntfnPtr, NtfnState_Active as u64);
     notification_ptr_set_ntfnMsgIdentifier(ntfnPtr, badge);
 }
+
