@@ -5,27 +5,24 @@ use crate::object::_thread_state::ThreadState_Running;
 use crate::object::*;
 use core::panic::*;
 
-macro_rules! NODE_STATE {
-    ($i:ident) => {
-        $i
-    };
-}
 
 
-#[repr(C)]
-#[derive(Copy, Clone)]
-pub struct thread_state_t {
-    pub words: [u64; 3],
-}
 #[inline]
-pub fn thread_state_get_tsType(thread_state: &thread_state_t) -> u64 {
-    thread_state.words[0] & 0xfu64
+pub fn thread_state_get_tsType(thread_state: *const thread_state_t) -> u64 {
+    unsafe{
+        (*thread_state).words[0] & 0xfu64
+    }
 }
 #[repr(C)]
 pub struct dschedule {
     pub domain: dom_t,
     pub length: word_t,
 }
+struct DeriveCapRet {
+    status: exception_t,
+    cap: cap_t,
+}
+
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct extra_caps {
@@ -63,26 +60,28 @@ extern "C" {
     static mut ksIdleThread: *mut tcb_t;
     fn Arch_switchToThread(tcb: *mut tcb_t);
     fn Arch_switchToIdleThread();
-    fn deriveCap(slot:extra_caps_t,cap:cap);
+    fn deriveCap(slot:*mut cte,cap:cap) -> DeriveCapRet;
 }
 pub const L2_BITMAP_SIZE: usize = (256 + (1 << 6) - 1) / (1 << 6);
 pub type prio_t = word_t;
 
 pub fn configureIdleThread(tcb: *mut tcb_t) {
     unsafe {
+        let mut tcb_1 = *tcb;
         Arch_configureIdleThread(tcb);
-        setThreadState(tcb, ThreadState_IdleThreadState);
+        setThreadState(tcb, ThreadState_IdleThreadState as u64);
     }
 }
 
 pub fn activateThread() {
-    // if let Some(tcb) = unsafe { NODE_STATE!(ksCurThread) }.tcbYieldTo {
-    //     schedContext_completeYieldTo(unsafe { NODE_STATE!(ksCurThread) });
-    //     assert_eq!(thread_state_get_tsType(unsafe { NODE_STATE!(ksCurThread) }.tcbState), ThreadState_Running);
+    // if let Some(tcb) = unsafe { (ksCurThread) }.tcbYieldTo {
+    //     schedContext_completeYieldTo(unsafe { (ksCurThread) });
+    //     assert_eq!(thread_state_get_tsType(unsafe { (ksCurThread) }.tcbState), ThreadState_Running);
     // }
         unsafe{
-        match thread_state_get_tsType(unsafe { NODE_STATE!(ksCurThread) }.tcbState) {
-        ThreadState_Running => {
+        match thread_state_get_tsType(&((*ksCurThread).tcbState) as *const thread_state_t) {
+        /*ThreadState_Running as u64 */
+        1 => {
             // 线程状态为 ThreadState_Running 时无需处理
         }
         #[cfg(feature = "config_vtx")]
@@ -90,12 +89,13 @@ pub fn activateThread() {
             // 线程状态为 ThreadState_RunningVM 时无需处理
         }
         ThreadState_Restart => {
-            let pc = getRestartPC(unsafe { NODE_STATE!(ksCurThread) });
-            setNextPC(unsafe { NODE_STATE!(ksCurThread) }, pc);
-            setThreadState(unsafe { NODE_STATE!(ksCurThread) }, ThreadState_Running);
+            let pc = getRestartPC(unsafe { (ksCurThread) });
+            setNextPC(unsafe { (ksCurThread) }, pc);
+            setThreadState((ksCurThread), ThreadState_Running as u64);
         }
-        ThreadState_IdleThreadState => {
-            Arch_activateIdleThread(unsafe { NODE_STATE!(ksCurThread) });
+        /*ThreadState_IdleThreadState */
+        7 => {
+            Arch_activateIdleThread(unsafe { (ksCurThread) });
         }
         _ => {
             panic!("Current thread is blocked");
@@ -116,7 +116,7 @@ pub enum _bool {
     r#false = 0,
     r#true = 1,
 }
-pub type bool_t = word_t;
+type bool_t = word_t;
 #[no_mangle]
 pub unsafe extern "C" fn isBlocked(thread: *const tcb_t) -> bool_t {
     let tcbState = &(*thread).tcbState;
@@ -135,13 +135,13 @@ use crate::cnode::*;
 use crate::kernel::tcb::*;
 pub fn restart(target: *mut tcb_t) {
     unsafe{
-    if isBlocked(target) {
+    if isBlocked(target) != 0 {
        // cancelIPC(target);
         #[cfg(feature = "config_kernel_mcs")]
         {
             setThreadState(target, ThreadState_Restart);
             if sc_sporadic(target.tcbSchedContext)
-                && target.tcbSchedContext != unsafe { NODE_STATE!(ksCurSC) }
+                && target.tcbSchedContext != unsafe { (ksCurSC) }
             {
                 refill_unblock_check(target.tcbSchedContext);
             }
@@ -165,20 +165,20 @@ use core::intrinsics::likely;
 use crate::kernel::fastpath::seL4_Fault_get_seL4_FaultType;
 use crate::kernel::fastpath::seL4_Fault_tag::seL4_Fault_NullFault;
 fn doIPCTransfer(
-    sender: &mut tcb_t,
-    endpoint: &mut endpoint_t,
+    sender: *mut tcb_t,
+    endpoint: *mut endpoint_t,
     badge: word_t,
     grant: bool_t,
-    receiver: &mut tcb_t,
+    receiver: *mut tcb_t,
 ) {
-    let mut receiveBuffer: *mut c_void;
-    let mut sendBuffer: *mut c_void;
+    let mut receiveBuffer: *mut word_t;
+    let mut sendBuffer: *mut word_t;
     unsafe{
-    receiveBuffer = lookupIPCBuffer(true, receiver);
+    *receiveBuffer = lookupIPCBuffer(1, receiver);
     }
     unsafe{
-        if likely(seL4_Fault_get_seL4_FaultType(sender.tcbFault) == seL4_Fault_NullFault) {
-            sendBuffer = lookupIPCBuffer(false, sender);
+        if likely(seL4_Fault_get_seL4_FaultType((*sender).tcbFault) == seL4_Fault_NullFault as u64) {
+            *sendBuffer = lookupIPCBuffer(0, sender);
             doNormalTransfer(
                 sender,
                 sendBuffer,
@@ -196,7 +196,7 @@ fn doIPCTransfer(
 
 #[repr(C)]
 pub struct endpoint {
-    pub words: [u64; 2],
+    words: [u64; 2],
 }
 pub type endpoint_t = endpoint;
 
@@ -211,8 +211,8 @@ pub unsafe extern "C" fn doReplyTransfer(
     receiver: *mut tcb_t,
     slot: *mut cte_t,
 ) {
-    if seL4_Fault_get_seL4_FaultType(&(*receiver).tcbFault) == seL4_Fault_NullFault {
-        doIPCTransfer(
+    if seL4_Fault_get_seL4_FaultType((*receiver).tcbFault) == seL4_Fault_NullFault as u64 {
+        doIPCTransfer( 
             sender,
             0 as *mut endpoint_t,
             0,
@@ -277,12 +277,12 @@ pub unsafe fn setRegister(thread: *mut tcb_t, reg: register_t, w: word_t) {
     (*thread).tcbArch.tcbContext.registers[reg as usize] = w;
 }
 pub fn doNormalTransfer(
-    sender: &mut tcb_t,
+    sender: *mut tcb_t,
     sendBuffer: *mut word_t,
-    endpoint: &mut endpoint_t,
+    endpoint: *mut endpoint_t,
     badge: word_t,
     canGrant: bool_t,
-    receiver: &mut tcb_t,
+    receiver: *mut tcb_t,
     receiveBuffer: *mut word_t,
 ) {
     unsafe{
@@ -291,7 +291,7 @@ pub fn doNormalTransfer(
         let mut status: exception_t;
     tag = messageInfoFromWord(getRegister(sender, msgInfoRegister));
 
-    if canGrant {
+    if canGrant != 0{
         status = lookupExtraCaps(sender, sendBuffer, tag);
         if unlikely(status != EXCEPTION_NONE) {
             current_extra_caps.excaprefs[0] = null_mut();
@@ -331,14 +331,14 @@ pub fn seL4_MessageInfo_new(
     seL4_MessageInfo_t { words: [ret] }
 }
 
-pub fn doFaultTransfer(badge: word_t, sender: &mut tcb_t, receiver: &mut tcb_t, receiverIPCBuffer: *mut word_t) {
+pub fn doFaultTransfer(badge: word_t, sender: *mut tcb_t, receiver: *mut tcb_t, receiverIPCBuffer: *mut word_t) {
     unsafe{
         let mut sent: word_t;
         let mut msgInfo: seL4_MessageInfo_t;
 
         sent = setMRs_fault(sender, receiver, receiverIPCBuffer);
         msgInfo = seL4_MessageInfo_new(
-            seL4_Fault_get_seL4_FaultType(sender.tcbFault),
+            seL4_Fault_get_seL4_FaultType((*sender).tcbFault),
             0,
             0,
             sent,
@@ -378,15 +378,15 @@ pub fn seL4_MessageInfo_get_capsUnwrapped(seL4_MessageInfo: seL4_MessageInfo_t) 
 use crate::kernel::tcb::cteInsert;
 pub fn transferCaps(
     info: seL4_MessageInfo_t,
-    endpoint: &mut endpoint_t,
-    receiver: &mut tcb_t,
+    endpoint: *mut endpoint_t,
+    receiver: *mut tcb_t,
     receiveBuffer: *mut word_t,
 ) -> seL4_MessageInfo_t {
     unsafe{
     let mut i: word_t;
     let mut destSlot: *mut cte_t;
 
-    info = seL4_MessageInfo_set_extraCaps(info, 0);
+    let mut info = seL4_MessageInfo_set_extraCaps(info, 0);
     info = seL4_MessageInfo_set_capsUnwrapped(info, 0);
 
     if likely(!current_extra_caps.excaprefs[0].is_null() && receiveBuffer.is_null()) {
@@ -401,11 +401,11 @@ pub fn transferCaps(
             break;
         }
 
-        let cap = slot.cap;
+        let cap = (*slot).cap;
 
-        if cap_get_capType(cap) == cap_endpoint_cap && cap_endpoint_cap_get_capEPPtr(cap) == endpoint {
+        if cap_get_capType(cap) == cap_endpoint_cap as u64 && cap_endpoint_cap_get_capEPPtr(cap) == endpoint as u64 {
             // 如果这是发送消息的端点的能力，则仅传输标记（badge），而不是能力
-            setExtraBadge(receiveBuffer, cap_endpoint_cap_get_capEPBadge(cap), i);
+            setExtraBadge(receiveBuffer, cap_endpoint_cap_get_capEPBadge(cap), i as u64);
             //再tcb中有定义，但是用不了
             info = seL4_MessageInfo_set_capsUnwrapped(
                 info,
@@ -455,11 +455,11 @@ use crate::types::wordBits;
 pub fn getHighestPrio(dom: word_t) -> prio_t {
     unsafe{
         let l1index: word_t =
-            (wordBits as i64 - 1 - rust_clzl(NODE_STATE!(ksReadyQueuesL1Bitmap)[dom as usize])) as u64;
+            (wordBits as i64 - 1 - rust_clzl((ksReadyQueuesL1Bitmap)[dom as usize])) as u64;
         let l1index_inverted: word_t = invert_l1index(l1index);
         let l2index: word_t = (wordBits as i64
             - 1
-            - rust_clzl(NODE_STATE!(ksReadyQueuesL2Bitmap)[dom as usize][l1index_inverted as usize]))
+            - rust_clzl((ksReadyQueuesL2Bitmap)[dom as usize][l1index_inverted as usize]))
             as u64;
         l1index_to_prio(l1index) | l2index
     }
@@ -467,10 +467,10 @@ pub fn getHighestPrio(dom: word_t) -> prio_t {
 pub  fn chooseThread() {
     unsafe{
         let dom: word_t = 0;
-        if NODE_STATE!(ksReadyQueuesL1Bitmap)[dom as usize] != 0 {
+        if (ksReadyQueuesL1Bitmap)[dom as usize] != 0 {
             let prio: word_t = getHighestPrio(dom);
             let thread: *mut tcb_t =
-                NODE_STATE!(ksReadyQueues)[ready_queues_index(dom, prio) as usize].head;
+                (ksReadyQueues)[ready_queues_index(dom, prio) as usize].head;
             switchToThread(thread);
         } else {
             switchToIdleThread();
@@ -486,11 +486,11 @@ pub fn nextDomain() {
     }
 
     ksWorkUnitsCompleted = 0;
-    ksCurDomain = ksDomSchedule[ksDomScheduleIdx].domain;
+    ksCurDomain = ksDomSchedule[ksDomScheduleIdx as usize].domain;
 
     #[cfg(not(CONFIG_KERNEL_MCS))]
     {
-        ksDomainTime = ksDomSchedule[ksDomScheduleIdx].length;
+        ksDomainTime = ksDomSchedule[ksDomScheduleIdx as usize].length;
     }
     }
 }
@@ -507,7 +507,7 @@ const SchedulerAction_ResumeCurrentThread: *mut tcb_t = 0 as *mut tcb_t;
 const SchedulerAction_ChooseNewThread: *mut tcb_t = 1 as *mut tcb_t;
 fn isHighestPrio(dom: word_t, prio: prio_t) -> bool_t {
     unsafe{
-        (NODE_STATE!(ksReadyQueuesL1Bitmap)[dom as usize] == 0 || prio >= getHighestPrio(dom)) as u64
+        ((ksReadyQueuesL1Bitmap)[dom as usize] == 0 || prio >= getHighestPrio(dom)) as u64
     }
 }
 pub fn schedule() {
@@ -518,59 +518,59 @@ pub fn schedule() {
         checkDomainTime();
     }
 
-    if NODE_STATE!(ksSchedulerAction) != SchedulerAction_ResumeCurrentThread {
+    if (ksSchedulerAction) != SchedulerAction_ResumeCurrentThread {
         let was_runnable: bool_t;
-        // if isSchedulable(NODE_STATE!(ksCurThread)) {
+        // if isSchedulable((ksCurThread)) {
         //     was_runnable = true;
         //     SCHED_ENQUEUE_CURRENT_TCB;
         // } else {
         //     was_runnable = false;
         // }
 
-        if NODE_STATE!(ksSchedulerAction) == SchedulerAction_ChooseNewThread {
+        if (ksSchedulerAction) == SchedulerAction_ChooseNewThread {
             #[cfg(CONFIG_KERNEL_MCS)]
             unsafe { scheduleChooseNewThread() };
         } else {
-            let candidate = NODE_STATE!(ksSchedulerAction);
+            let candidate = (ksSchedulerAction);
            // assert(isSchedulable(candidate));
 
-            let fastfail = NODE_STATE!(ksCurThread) == NODE_STATE!(ksIdleThread)
-                || candidate.tcbPriority < NODE_STATE!(ksCurThread).tcbPriority;
+            let fastfail = (ksCurThread) == (ksIdleThread)
+                || (*candidate).tcbPriority < (*ksCurThread).tcbPriority;
 
-            if fastfail && !isHighestPrio(ksCurDomain, candidate.tcbPriority) {
+            if fastfail && isHighestPrio(ksCurDomain, (*candidate).tcbPriority) == 0 {
                 tcbSchedEnqueue(candidate);//tcb里有定义
-                NODE_STATE!(ksSchedulerAction) = SchedulerAction_ChooseNewThread;
+                (ksSchedulerAction) = SchedulerAction_ChooseNewThread;
                 #[cfg(CONFIG_KERNEL_MCS)]
                 unsafe { scheduleChooseNewThread() };
-            } else if was_runnable && candidate.tcbPriority == NODE_STATE!(ksCurThread).tcbPriority {
+            } else if was_runnable!=0 && (*candidate).tcbPriority == (*ksCurThread).tcbPriority {
                 tcbSchedAppend(candidate);//tcb里有定义
-                NODE_STATE!(ksSchedulerAction) = SchedulerAction_ChooseNewThread;
+                (ksSchedulerAction) = SchedulerAction_ChooseNewThread;
                 #[cfg(CONFIG_KERNEL_MCS)]
                 unsafe { scheduleChooseNewThread() };
             } else {
-               // assert(candidate != NODE_STATE!(ksCurThread));
+               // assert(candidate != (ksCurThread));
                 switchToThread(candidate);
             }
         }
     }
-    NODE_STATE!(ksSchedulerAction) = SchedulerAction_ResumeCurrentThread;
+    (ksSchedulerAction) = SchedulerAction_ResumeCurrentThread;
     }
 }
 
-pub fn switchToThread(thread: tcb_t) {
+pub fn switchToThread(thread: *mut tcb_t) {
     unsafe {
         Arch_switchToThread(thread);
     }
     tcbSchedDequeue(thread);//tcb有定义
     unsafe {
-        NODE_STATE!(ksCurThread) = thread;
+        (ksCurThread) = thread;
     }
 }
 
 pub fn switchToIdleThread() {
     unsafe {
         Arch_switchToIdleThread();
-        NODE_STATE!(ksCurThread) = NODE_STATE!(ksIdleThread);
+        (ksCurThread) = (ksIdleThread);
     }
 }
 
@@ -585,14 +585,16 @@ fn isSchedulable(thread: *const tcb_t) -> bool_t {
     }
 }
 
-pub fn setDomain(tptr: tcb_t, dom: dom_t) {
+pub fn setDomain(tptr: *mut tcb_t, dom: *mut dom_t) {
+    unsafe{
     tcbSchedDequeue(tptr);//tcb
-    tptr.tcbDomain = dom;
-    if isSchedulable(tptr) {
+    (*tptr).tcbDomain = *dom;
+    if isSchedulable(tptr) !=0 {
         tcbSchedEnqueue(tptr);//tcb
     }
-    if tptr == unsafe { NODE_STATE!(ksCurThread) } {
+    if tptr == unsafe { (ksCurThread) } {
         unsafe {rescheduleRequired();}
+    }
     }
 }
 
@@ -601,57 +603,64 @@ pub fn setMCPriority(tptr: *mut tcb_t, mcp: prio_t) {
     unsafe{(*tptr).tcbMCP = mcp;}
 }
 
-pub fn setPriority(tptr: tcb_t, prio: prio_t) {
+pub fn setPriority(tptr: *mut tcb_t, prio: *mut prio_t) {
+    unsafe{
     tcbSchedDequeue(tptr);
-    tptr.tcbPriority = prio;
-    if isSchedulable(tptr) {
-        if tptr == unsafe { NODE_STATE!(ksCurThread) } {
+    (*tptr).tcbPriority = *prio;
+    if isSchedulable(tptr) != 0 {
+        if tptr == unsafe { (ksCurThread) } {
             unsafe {rescheduleRequired();}
         } else {
            unsafe{ possibleSwitchTo(tptr);}
         }
+    }
     }
 }
 pub unsafe extern "C" fn possibleSwitchTo(target: *mut tcb_t) {
     //ignore smp
     if ksCurDomain != (*target).tcbDomain {
         tcbSchedEnqueue(target);
-    } else if NODE_STATE!(ksSchedulerAction) != SchedulerAction_ResumeCurrentThread {
+    } else if (ksSchedulerAction) != SchedulerAction_ResumeCurrentThread {
         rescheduleRequired();
         tcbSchedEnqueue(target);
     } else {
-        NODE_STATE!(ksSchedulerAction) = target;
+        (ksSchedulerAction) = target;
     }
 }
 #[inline]
-pub fn thread_state_ptr_set_tsType(thread_state_ptr: &mut thread_state_t, v64: u64) {
+pub fn thread_state_ptr_set_tsType(mut thread_state_ptr: thread_state_t, v64: u64) {
     thread_state_ptr.words[0] &= !0xfu64;
     thread_state_ptr.words[0] |= v64 & 0xfu64;
+    
 }
 
-pub fn setThreadState(tptr: tcb_t, ts: _thread_state_t) {
-    thread_state_ptr_set_tsType(&tptr.tcbState, ts);
+pub fn setThreadState(tptr: *mut tcb_t, ts: _thread_state_t) {
+    unsafe{
+    thread_state_ptr_set_tsType((*tptr).tcbState, ts);
     scheduleTCB(tptr);
+    }
 }
-pub fn scheduleTCB(tptr: tcb_t) {
-    if tptr == unsafe { NODE_STATE!(ksCurThread) } &&
-        unsafe { NODE_STATE!(ksSchedulerAction) } == SchedulerAction_ResumeCurrentThread &&
-        !isSchedulable(tptr)
+pub fn scheduleTCB(tptr: *mut tcb_t) {
+    unsafe{
+    if tptr == ksCurThread &&
+        unsafe { (ksSchedulerAction) } == SchedulerAction_ResumeCurrentThread &&
+        isSchedulable(tptr) == 0
     {
         unsafe {rescheduleRequired();}
+    }
     }
 }
 const CONFIG_TIME_SLICE: u64 = 5;
 pub fn timerTick() {
     unsafe{
-        if thread_state_get_tsType(&(*NODE_STATE!(ksCurThread)).tcbState)
+        if thread_state_get_tsType(&(*(ksCurThread)).tcbState)
             == _thread_state::ThreadState_Running as u64
         {
-            if (*NODE_STATE!(ksCurThread)).tcbTimeSlice > 1 {
-                (*NODE_STATE!(ksCurThread)).tcbTimeSlice -= 1;
+            if (*(ksCurThread)).tcbTimeSlice > 1 {
+                (*(ksCurThread)).tcbTimeSlice -= 1;
             } else {
-                (*NODE_STATE!(ksCurThread)).tcbTimeSlice = CONFIG_TIME_SLICE;
-                tcbSchedAppend(NODE_STATE!(ksCurThread));
+                (*(ksCurThread)).tcbTimeSlice = CONFIG_TIME_SLICE;
+                tcbSchedAppend((ksCurThread));
                 rescheduleRequired();
             }
         }
@@ -661,11 +670,11 @@ pub fn timerTick() {
 #[no_mangle]
 pub fn rescheduleRequired() {
     unsafe{
-        if NODE_STATE!(ksSchedulerAction) != SchedulerAction_ResumeCurrentThread
-            && NODE_STATE!(ksSchedulerAction) != SchedulerAction_ChooseNewThread
+        if (ksSchedulerAction) != SchedulerAction_ResumeCurrentThread
+            && (ksSchedulerAction) != SchedulerAction_ChooseNewThread
         {
-            tcbSchedEnqueue(NODE_STATE!(ksSchedulerAction));
+            tcbSchedEnqueue((ksSchedulerAction));
         }
-        NODE_STATE!(ksSchedulerAction) = SchedulerAction_ChooseNewThread;
+        (ksSchedulerAction) = SchedulerAction_ChooseNewThread;
     }
 }
