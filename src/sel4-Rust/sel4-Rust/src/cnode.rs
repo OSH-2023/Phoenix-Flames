@@ -1,4 +1,4 @@
-// jwh 7.8 20:00
+// jwh 7.5 20:00
 #![allow(non_camel_case_types)]
 #![allow(non_upper_case_globals)]
 #![allow(non_snake_case)]
@@ -35,26 +35,26 @@ pub fn decodeCNodeInvocation
 {
 }
  */
-
 #[no_mangle]
-pub extern "C" fn invokeCNodeRevoke(destSlot: *mut cte_t) -> u64 {
-    cteRevoke(destSlot)
+pub extern "C" fn invokeCNodeRevoke(dest_slot: *mut cte_t) -> exception_t {
+    return cteRevoke(dest_slot);
 }
 
 #[no_mangle]
-pub extern "C" fn invokeCNodeDelete(destSlot: *mut cte_t) -> u64 {
-    cteDelete(destSlot, 1u64)
+pub extern "C" fn invokeCNodeDelete(dest_slot: *mut cte_t) -> exception_t {
+    return cteDelete(dest_slot, true);
 }
 
-/*#[no_mangle]
-pub extern "C" fn invokeCNodeCancelBadgedSends(cap: cap_t) -> u64 {
+#[no_mangle]
+pub extern "C" fn invokeCNodeCancelBadgedSends(cap: cap_t) -> exception_t {
     let badge = cap_endpoint_cap_get_capEPBadge(cap);
-    if badge != 0u64 {
+    if badge != 0 {
         let ep = cap_endpoint_cap_get_capEPPtr(cap) as *mut endpoint_t;
-        cancelBadgedSends(ep, badge);
+        cancel_badged_sends(ep, badge);
     }
-    0u64
-}*/
+    return EXCEPTION_NONE;
+}
+
 
 #[no_mangle]
 pub extern "C" fn invokeCNodeInsert(cap: cap_t, srcSlot: *mut cte_t, destSlot: *mut cte_t) -> u64 {
@@ -310,76 +310,99 @@ pub extern "C" fn capCyclicZombie(cap: cap_t, slot: *mut cte_t) -> bool_t {
 
 #[no_mangle]
 pub extern "C" fn finaliseSlot(slot: *mut cte_t, immediate: bool_t) -> finaliseSlot_ret_t {
-    while cap_get_capType((*slot).cap) != cap_tag_t::cap_null_cap as u64 {
-        let final_: u64 = isFinalCapability(slot);
-        let fc_ret = finaliseCap((*slot).cap, final_, 0u64);
+    let mut final_: bool_t;
+    let mut fc_ret: finaliseCap_ret_t;
+    let mut status: exception_t;
+    let mut ret: finaliseSlot_ret_t;
+
+    while cap_get_cap_type(slot.cap) != cap_null_cap {
+        final_ = isFinalCapability(slot);
+        fc_ret = finaliseCap(slot.cap, final_, false);
+
         if capRemovable(fc_ret.remainder, slot) {
-            return finaliseSlot_ret_t {
-                status: 0u64,
-                success: 1u64,
-                cleanupInfo: fc_ret.cleanupInfo,
-            };
+            ret.status = EXCEPTION_NONE;
+            ret.success = 1u64;
+            ret.cleanupInfo = fc_ret.cleanupInfo;
+            return ret;
         }
-        (*slot).cap = fc_ret.remainder;
-        if immediate == 0u64 && capCyclicZombie(fc_ret.remainder, slot) {
-            return finaliseSlot_ret_t {
-                status: 0u64,
-                success: 0u64,
-                cleanupInfo: fc_ret.cleanupInfo,
-            };
+
+        slot.cap = fc_ret.remainder;
+
+        if !immediate && capCycliczombie(fc_ret.remainder, slot) {
+            ret.status = EXCEPTION_NONE;
+            ret.success = 0u64;
+            ret.cleanupInfo = fc_ret.cleanupInfo;
+            return ret;
         }
-        let mut status = reduceZombie(slot, immediate);
-        if status != 0u64 {
-            return finaliseSlot_ret_t {
-                status: status,
-                success: 0u64,
-                cleanupInfo: cap_null_cap_new(),
-            };
+
+        status = reduceZombie(slot, immediate);
+        if status != EXCEPTION_NONE {
+            ret.status = status;
+            ret.success = 0u64;
+            ret.cleanupInfo = cap_null_cap_new();
+            return ret;
         }
+
         status = preemptionPoint();
-        if status != 0u64 {
-            return finaliseSlot_ret_t {
-                status: status,
-                success: 0u64,
-                cleanupInfo: cap_null_cap_new(),
-            };
+        if status != EXCEPTION_NONE {
+            ret.status = status;
+            ret.success = 0u64;
+            ret.cleanupInfo = cap_null_cap_new();
+            return ret;
         }
     }
-    finaliseSlot_ret_t {
-        status: 0u64,
-        success: 1u64,
-        cleanupInfo: cap_null_cap_new(),
-    }
+    ret.status = EXCEPTION_NONE;
+    ret.success = 1u64;
+    ret.cleanupInfo = cap_null_cap_new();
+    return ret;
 }
 
+
 #[no_mangle]
-pub extern "C" fn reduceZombie(slot: *mut cte_t, immediate: bool_t) -> u64 {
-    let ptr = cap_zombie_cap_get_capZombiePtr((*slot).cap) as *mut cte_t;
-    let n = cap_zombie_cap_get_capZombieNumber((*slot).cap);
-    let type_ = cap_zombie_cap_get_capZombieType((*slot).cap);
-    if immediate == 1u64 {
-        let endSlot = ptr.offset((n - 1) as isize);
-        let status = cteDelete(endSlot, 0u64);
-        if status != 0u64 {
+pub extern "C" fn reduceZombie(slot: &mut cte_t, immediate: bool_T) -> exception_t {
+    let ptr = cap_zombie_cap_get_capZombiePtr(slot.cap) as *mut cte_t;
+    let n = cap_zombie_cap_get_capZombieNumber(slot.cap);
+    let type_ = cap_zombie_cap_get_capZombieType(slot.cap);
+
+    assert_eq!(cap_get_capType(slot.cap), cap_zombie_cap);
+
+    assert!(n > 0);
+
+    if immediate==1u64 {
+        let end_slot = unsafe { ptr.add(n - 1) };
+
+        let status = cteDelete(end_slot, false);
+        if status != EXCEPTION_NONE {
             return status;
         }
-        let cap_type = cap_get_capType((*slot).cap);
-        if cap_type == cap_tag_t::cap_null_cap as u64 {
-        } else if cap_type == cap_tag_t::cap_zombie_cap as u64 {
-            let ptr2 = cap_zombie_cap_get_capZombiePtr((*slot).cap) as *mut cte_t;
-            if ptr == ptr2
-                && cap_zombie_cap_get_capZombieNumber((*slot).cap) == n
-                && cap_zombie_cap_get_capZombieType((*slot).cap) == type_
-            {
-                (*slot).cap = cap_zombie_cap_set_capZombieNumber((*slot).cap, n - 1);
+
+        match cap_get_capType(slot.cap) {
+            cap_null_cap => {}
+            cap_zombie_cap => {
+                let ptr2 = cap_zombie_cap_get_capZombiePtr(slot.cap) as *mut cte_t;
+
+                if ptr == ptr2
+                    && cap_zombie_cap_get_capZombieNumber(slot.cap) == n
+                    && cap_zombie_cap_get_capZombieType(slot.cap) == type_
+                {
+                    assert_eq!(cap_get_capType(end_slot->cap), cap_null_cap);
+                    slot.cap = cap_zombie_cap_set_capZombieNumber(slot.cap, n - 1);
+                } else {
+                    assert!(ptr2 == slot && ptr != slot);
+                }
             }
-        } else {
-            panic!("Expected recursion to result in Zombie.");
+            _ => fail("Expected recursion to result in Zombie."),
         }
     } else {
+        assert!(ptr != slot);
+
+        if cap_get_capType(ptr->cap) == cap_zombie_cap {
+            assert_ne!(ptr, CTE_PTR(cap_zombie_cap_get_capZombiePtr(ptr->cap)));
+        }
+
         capSwapForDelete(ptr, slot);
     }
-    0u64
+    EXCEPTION_NONE
 }
 
 
