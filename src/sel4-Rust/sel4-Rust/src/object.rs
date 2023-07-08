@@ -471,9 +471,15 @@ pub fn thread_state_ptr_set_tcbQueued(thread_state_ptr:*mut thread_state_t, v64:
     }
 }
 
+#[inline(always)]
+pub fn thread_state_get_tcbQueued(thread_state:thread_state_t)->u64 {
+     (thread_state.words[1] & 0x1u64) >> 0
+}
+
 //from constants.h
 pub enum priorityConstants {
     seL4_InvalidPrio = -1,
     seL4_MinPrio = 0,
     seL4_MaxPrio = 255,
 }
+

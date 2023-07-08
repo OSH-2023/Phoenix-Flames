@@ -40,13 +40,3 @@ pub struct syscall_error {
 }
 pub type syscall_error_t = syscall_error;
 
-extern "C"{
-    static mut current_fault:seL4_Fault_t;
-}
-
-//to be done
-/*
-extern lookup_fault_t current_lookup_fault;
-extern seL4_Fault_t current_fault;
-extern syscall_error_t current_syscall_error;
-*/

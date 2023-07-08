@@ -19,7 +19,7 @@ use crate::types::compound_types::*;
 use crate::kernel::fastpath::seL4_MessageInfo_t;
 use crate::kernel::tcb::invocation_label::*;
 use crate::object::cap_tag::cap_thread_cap;
-use crate::inlines::current_fault;
+use crate::inlines::*;
 use crate::kernel::notification::cteDeleteOne;
 
 pub const L2_BITMAP_SIZE: usize = (256 + (1 << 6) - 1) / (1 << 6);
@@ -27,8 +27,6 @@ pub const wordRadix: u64 = 6;
 pub const wordBits: u64 = 1 << 6;
 
 extern "C" {
-    pub fn prio_to_l1index(prio:word_t) -> word_t;
-    pub fn thread_state_get_tcbQueued(thread_state:thread_state_t) -> u64;
     pub fn cap_reply_cap_new(capReplyCanGrant:u64, capReplyMaster:u64, capTCBPtr:u64) -> cap_t;
     pub fn cteInsert(newCap:cap_t, srcSlot:*mut cte_t, desSlot:*mut cte_t);
     pub fn seL4_MessageInfo_get_extraCaps(seL4_MessageInfo:seL4_MessageInfo_t) -> u64;
@@ -67,7 +65,6 @@ extern "C" {
     static mut ksReadyQueues: [tcb_queue_t;256];
     static mut ksCurThread:*mut tcb_t;
     static mut current_extra_caps:extra_caps_t;
-    static mut current_syscall_error:syscall_error_t;
 }
 
 pub fn checkPrio(prio:prio_t, auth:*mut tcb_t) -> exception_t{

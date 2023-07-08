@@ -118,13 +118,6 @@ pub struct seL4_MessageInfo {
 }
 pub type seL4_MessageInfo_t = seL4_MessageInfo;
 
-// #[derive(Copy, Clone)]
-// #[repr(C)]
-// pub struct seL4_Fault {
-//     words:[u64;2],
-// }
-// pub type seL4_Fault_t = seL4_Fault;
-
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct endpoint {
@@ -146,19 +139,6 @@ pub struct pde {
     words: [u64; 1],
 }
 pub type pde_t = pde;
-
-// #[derive(Copy, Clone)]
-// #[repr(C)]
-// pub struct thread_state {
-//     words: [u64; 3],
-// }
-// pub type thread_state_t = thread_state;
-
-// #[repr(C)]
-// pub struct mdb_node {
-//     words: [u64; 2],
-// }
-// pub type mdb_node_t = mdb_node;
 
 // 外调C原始函数
 extern "C" {
@@ -241,7 +221,6 @@ extern "C" {
 
 
 // funcs
-#[no_mangle]
 pub fn fastpath_call(
     cptr:       word_t,
     msgInfo:    word_t
@@ -363,7 +342,6 @@ pub fn fastpath_call(
     }
 }
 
-#[no_mangle]
 pub fn fastpath_reply_recv(
     cptr: word_t,
     msgInfo: word_t

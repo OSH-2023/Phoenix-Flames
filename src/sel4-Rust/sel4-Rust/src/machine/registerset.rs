@@ -15,6 +15,7 @@ Including contents from
 
 // 2. from arch/machine/registerset.h
 #[derive(Clone,Copy)]
+#[repr(C)]
 pub struct user_context {
     pub registers:[word_t;35]
 }

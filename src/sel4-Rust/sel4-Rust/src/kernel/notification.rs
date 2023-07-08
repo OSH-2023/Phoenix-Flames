@@ -29,7 +29,7 @@ extern "C" {
     pub fn cteDeleteOne(slot: *mut cte);
 }
 
-pub fn ntfn_ptr_get_queue(ntfnPtr: *mut notification_t) -> tcb_queue_t {
+pub extern "C" fn ntfn_ptr_get_queue(ntfnPtr: *mut notification_t) -> tcb_queue_t {
     let ntfn_queue: tcb_queue_t = tcb_queue_t {
         head: notification_ptr_get_ntfnQueue_head(ntfnPtr) as (*mut tcb_t),
         end: notification_ptr_get_ntfnQueue_tail(ntfnPtr) as (*mut tcb_t),
@@ -37,7 +37,7 @@ pub fn ntfn_ptr_get_queue(ntfnPtr: *mut notification_t) -> tcb_queue_t {
     ntfn_queue
 }
 
-pub fn ntfn_ptr_set_queue(ntfnPtr: *mut notification_t, ntfn_queue: tcb_queue_t) {
+pub extern "C" fn ntfn_ptr_set_queue(ntfnPtr: *mut notification_t, ntfn_queue: tcb_queue_t) {
     notification_ptr_set_ntfnQueue_head(ntfnPtr, ntfn_queue.head as word_t);
     notification_ptr_set_ntfnQueue_tail(ntfnPtr, ntfn_queue.end as word_t);
 }
@@ -162,7 +162,7 @@ pub fn cancelSignal(threadPtr: *mut tcb_t, ntfnPtr: *mut notification_t) {
     }
 }
 
-pub fn completeSignal(ntfnPtr: *mut notification_t, tcb: *mut tcb_t) {
+pub extern "C" fn completeSignal(ntfnPtr: *mut notification_t, tcb: *mut tcb_t) {
     let mut badge: word_t;
 
     if tcb as u64 != 0 && notification_ptr_get_state(ntfnPtr) == NtfnState_Active as u64 {
@@ -176,21 +176,23 @@ pub fn completeSignal(ntfnPtr: *mut notification_t, tcb: *mut tcb_t) {
     }
 }
 
-pub fn doUnbindNotification(ntfnPtr: *mut notification_t, tcbptr: *mut tcb_t) {
+#[no_mangle]
+pub extern "C" fn doUnbindNotification(ntfnPtr: *mut notification_t, tcbptr: *mut tcb_t) {
     notification_ptr_set_ntfnBoundTCB(ntfnPtr, 0 as word_t);
     unsafe {
         (*tcbptr).tcbBoundNotification = 0u64 as (*mut notification_t);
     }
 }
 
-pub fn unbindMaybeNotification(ntfnPtr: *mut notification_t) {
+#[no_mangle]
+pub extern "C" fn unbindMaybeNotification(ntfnPtr: *mut notification_t) {
     let boundTCB: *mut tcb_t = notification_ptr_get_ntfnBoundTCB(ntfnPtr) as *mut tcb_t;
     if boundTCB as u64 != 0 {
         doUnbindNotification(ntfnPtr, boundTCB);
     }
 }
 
-pub fn unbindNotification(tcb: *mut tcb_t) {
+pub extern "C" fn unbindNotification(tcb: *mut tcb_t) {
     let ntfnPtr: *mut notification_t;
     unsafe {
         ntfnPtr = (*tcb).tcbBoundNotification;
@@ -200,14 +202,15 @@ pub fn unbindNotification(tcb: *mut tcb_t) {
     }
 }
 
-pub fn bindNotification(tcb: *mut tcb_t, ntfnPtr: *mut notification_t) {
+pub extern "C" fn bindNotification(tcb: *mut tcb_t, ntfnPtr: *mut notification_t) {
     notification_ptr_set_ntfnBoundTCB(ntfnPtr, tcb as word_t);
     unsafe {
         (*tcb).tcbBoundNotification = ntfnPtr;
     }
 }
 
-pub fn ntfn_set_active(ntfnPtr: *mut notification_t, badge: word_t) {
+#[no_mangle]
+pub extern "C" fn ntfn_set_active(ntfnPtr: *mut notification_t, badge: word_t) {
     notification_ptr_set_state(ntfnPtr, NtfnState_Active as u64);
     notification_ptr_set_ntfnMsgIdentifier(ntfnPtr, badge);
 }

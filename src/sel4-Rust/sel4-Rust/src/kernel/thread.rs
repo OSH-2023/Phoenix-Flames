@@ -16,6 +16,8 @@ extern "C" {
 pub fn thread_state_get_tsType(thread_state: *const thread_state_t) -> u64 {
     unsafe { (*thread_state).words[0] & 0xfu64 }
 }
+
+#[derive(Clone,Copy)]
 #[repr(C)]
 pub struct dschedule {
     pub domain: dom_t,
@@ -67,8 +69,7 @@ extern "C" {
 }
 pub const L2_BITMAP_SIZE: usize = (256 + (1 << 6) - 1) / (1 << 6);
 
-
-pub fn configureIdleThread(tcb: *mut tcb_t) {
+pub extern "C" fn configureIdleThread(tcb: *mut tcb_t) {
     unsafe {
         let mut tcb_1 = *tcb;
         Arch_configureIdleThread(tcb);
@@ -76,7 +77,7 @@ pub fn configureIdleThread(tcb: *mut tcb_t) {
     }
 }
 
-pub fn activateThread() {
+pub extern "C" fn activateThread() {
     // if let Some(tcb) = unsafe { (ksCurThread) }.tcbYieldTo {
     //     schedContext_completeYieldTo(unsafe { (ksCurThread) });
     //     assert_eq!(thread_state_get_tsType(unsafe { (ksCurThread) }.tcbState), ThreadState_Running);
@@ -107,11 +108,10 @@ pub fn activateThread() {
     }
 }
 
-#[no_mangle]
 pub unsafe extern "C" fn suspend(target: *mut tcb_t) {
-    // cancelIPC(target);
+    cancelIPC(target);
     setThreadState(target, _thread_state::ThreadState_Inactive as u64);
-    //tcbSchedDequeue(target);
+    tcbSchedDequeue(target);
 }
 
 #[repr(C)]
@@ -120,7 +120,7 @@ pub enum _bool {
     r#true = 1,
 }
 type bool_t = word_t;
-#[no_mangle]
+
 pub unsafe extern "C" fn isBlocked(thread: *const tcb_t) -> bool_t {
     let tcbState = &(*thread).tcbState;
     let tsType = thread_state_get_tsType(tcbState);
@@ -139,7 +139,7 @@ use crate::kernel::tcb::*;
 pub fn restart(target: *mut tcb_t) {
     unsafe {
         if isBlocked(target) != 0 {
-            // cancelIPC(target);
+            cancelIPC(target);
             #[cfg(feature = "config_kernel_mcs")]
             {
                 setThreadState(target, ThreadState_Restart);
@@ -201,6 +201,7 @@ fn doIPCTransfer(
     }
 }
 
+#[derive(Clone,Copy)]
 #[repr(C)]
 pub struct endpoint {
     pub words: [u64; 2],
@@ -212,7 +213,6 @@ pub fn seL4_Fault_NullFault_new() -> seL4_Fault_t {
     seL4_Fault_t { words: [0, 0] }
 }
 
-#[no_mangle]
 pub unsafe extern "C" fn doReplyTransfer(
     sender: *mut tcb_t,
     receiver: *mut tcb_t,
@@ -470,6 +470,8 @@ pub fn invert_l1index(l1index: word_t) -> word_t {
     L2_BITMAP_SIZE as u64 - 1 - l1index
 }
 use crate::types::wordBits;
+
+use super::notification::cancelIPC;
 pub fn getHighestPrio(dom: word_t) -> prio_t {
     unsafe {
         let l1index: word_t =
@@ -683,6 +685,7 @@ pub fn scheduleTCB(tptr: *mut tcb_t) {
         }
     }
 }
+
 const CONFIG_TIME_SLICE: u64 = 5;
 pub fn timerTick() {
     unsafe {
@@ -700,7 +703,6 @@ pub fn timerTick() {
     }
 }
 
-#[no_mangle]
 pub fn rescheduleRequired() {
     unsafe {
         if (ksSchedulerAction) != SchedulerAction_ResumeCurrentThread
@@ -710,4 +712,10 @@ pub fn rescheduleRequired() {
         }
         (ksSchedulerAction) = SchedulerAction_ChooseNewThread;
     }
+}
+
+#[inline(always)]
+pub fn prio_to_l1index(prio:u64)->u64
+{
+    prio >> wordRadix
 }
