@@ -16,4 +16,3 @@ pub mod machine;
 #[macro_use]
 pub mod util;
 pub mod inlines;
-pub mod cnode;
