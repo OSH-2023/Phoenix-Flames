@@ -19,11 +19,6 @@ use crate::object::notification_state::NtfnState_Idle;
 use crate::object::notification_state::NtfnState_Waiting;
 use crate::object::tcb_cnode_index::*;
 use crate::object::*;
-use crate::object::{
-    notification_ptr_get_ntfnQueue_head, notification_ptr_get_ntfnQueue_tail,
-    notification_ptr_get_state, notification_ptr_set_ntfnQueue_head,
-    notification_ptr_set_ntfnQueue_tail, notification_ptr_set_state,
-};
 use crate::types::word_t;
 
 pub fn ntfn_ptr_get_queue(ntfnPtr: *mut notification_t) -> tcb_queue_t {

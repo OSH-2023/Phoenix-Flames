@@ -703,15 +703,13 @@ notification_ptr_get_state(notification_t *notification_ptr) {
     return ret;
 }
 
-//try this
-extern void notification_ptr_set_state(notification_t* notification_ptr, uint64_t v64);
-// static inline void
-// notification_ptr_set_state(notification_t *notification_ptr, uint64_t v64) {
-//     /* fail if user has passed bits that we will override */
-//     assert((((~0x3ull >> 0) | 0x0) & v64) == ((0 && (v64 & (1ull << (47)))) ? 0x0 : 0));
-//     notification_ptr->words[0] &= ~0x3ull;
-//     notification_ptr->words[0] |= (v64 << 0) & 0x3;
-// }
+static inline void
+notification_ptr_set_state(notification_t *notification_ptr, uint64_t v64) {
+    /* fail if user has passed bits that we will override */
+    assert((((~0x3ull >> 0) | 0x0) & v64) == ((0 && (v64 & (1ull << (47)))) ? 0x0 : 0));
+    notification_ptr->words[0] &= ~0x3ull;
+    notification_ptr->words[0] |= (v64 << 0) & 0x3;
+}
 
 struct pml4e {
     uint64_t words[1];

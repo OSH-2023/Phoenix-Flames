@@ -36,8 +36,9 @@ static inline void maybeReturnSchedContext(notification_t *ntfnPtr, tcb_t *tcb)
 }
 #endif
 
-static inline void ntfn_set_active(notification_t *ntfnPtr, word_t badge)
-{
-    notification_ptr_set_state(ntfnPtr, NtfnState_Active);
-    notification_ptr_set_ntfnMsgIdentifier(ntfnPtr, badge);
-}
+extern void ntfn_set_active(notification_t *ntfnPtr, word_t badge);
+// static inline void ntfn_set_active(notification_t *ntfnPtr, word_t badge)
+// {
+//     notification_ptr_set_state(ntfnPtr, NtfnState_Active);
+//     notification_ptr_set_ntfnMsgIdentifier(ntfnPtr, badge);
+// }
