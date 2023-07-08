@@ -28,6 +28,13 @@ pub struct dschedule {
     pub domain: dom_t,
     pub length: word_t,
 }
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct extra_caps {
+    pub excaprefs: [cte_ptr_t; seL4_MsgMaxExtraCaps],
+}
+pub type cte_ptr_t = *mut cte_t;
+pub type extra_caps_t = extra_caps;
 type dom_t = word_t;
 extern "C" {
     fn Arch_configureIdleThread(tcb: *mut tcb_t);
@@ -58,6 +65,7 @@ extern "C" {
     static mut ksIdleThread: *mut tcb_t;
     fn Arch_switchToThread(tcb: *mut tcb_t);
     fn Arch_switchToIdleThread();
+    fn deriveCap(slot:extra_caps_t,cap:cap);
 }
 pub const L2_BITMAP_SIZE: usize = (256 + (1 << 6) - 1) / (1 << 6);
 pub type prio_t = word_t;
@@ -190,7 +198,7 @@ fn doIPCTransfer(
 
 #[repr(C)]
 pub struct endpoint {
-    pub words: [u64; 2],
+    words: [u64; 2],
 }
 pub type endpoint_t = endpoint;
 
