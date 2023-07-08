@@ -40,10 +40,6 @@ macro_rules! BIT {
     };
 }
 
-pub fn TCB_PTR_CTE_PTR(p:*mut tcb_t, i:u64) -> *mut cte_t{
-    ((((p as word_t) & (!MASK!(10))) as *mut cte_t) + i) as *mut cte_t
-}
-
 static mut ksReadyQueuesL1Bitmap:[u64; 1] = 0;
 static mut ksReadyQueuesL2Bitmap: [[u64; L2_BITMAP_SIZE]; 1] = 0;
 static mut ksReadyQueues: [tcb_queue_t;256] = 0 as tcb_queue_t;

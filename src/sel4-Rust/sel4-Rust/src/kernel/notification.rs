@@ -17,6 +17,10 @@ use crate::object::notification_state::NtfnState_Active;
 use crate::object::{notification_ptr_set_state,notification_ptr_get_state,notification_ptr_get_ntfnQueue_head,notification_ptr_set_ntfnQueue_head,notification_ptr_get_ntfnQueue_tail,notification_ptr_set_ntfnQueue_tail};
 use crate::kernel::thread::*;
 use crate::kernel::tcb::*;
+use crate::kernel::fastpath::_thread_state::*;
+use crate::kernel::fastpath::endpoint_state::*;
+use crate::object::tcb_cnode_index::*;
+use crate::cnode::*;
 
 
 pub fn ntfn_ptr_get_queue(ntfnPtr: *mut notification_t) -> tcb_queue_t {
@@ -38,7 +42,7 @@ pub fn sendSignal(ntfnPtr: *mut notification_t, badge: word_t) {
         let mut tcb: *mut tcb_t = notification_ptr_get_ntfnBoundTCB(ntfnPtr) as (*mut tcb_t);
         if tcb!=0 {
             if unsafe{thread_state_ptr_get_tsType((*tcb).tcbState) == ThreadState_BlockedOnReceive} {
-                cancleIPC(tcb);//from endpoint.c
+                cancelIPC(tcb);//from endpoint.c
                 setThreadState(tcb, ThreadState_Running);//from thread.c
                 unsafe{
                     setRegister(tcb, /*badgeRegister*/9, badge);//from thread.c
@@ -185,3 +189,112 @@ pub fn ntfn_set_active(ntfnPtr: *mut notification_t, badge: word_t){
     notification_ptr_set_ntfnMsgIdentifier(ntfnPtr, badge);
 }
 
+//belows are from endpoint.c, I add it here since nobody is in charge of endpoint.c
+pub fn cancelIPC(tptr:*mut tcb_t) {
+    let mut state:thread_state_t;
+    unsafe{
+        state = (*tptr).tcbState;
+    }
+    let tmp:u64 = thread_state_ptr_get_tsType(state);
+    if tmp == ThreadState_BlockedOnSend {
+        ;
+    }else 
+    if tmp == ThreadState_BlockedOnReceive{
+        let mut epptr:*mut endpoint_t;
+        let mut queue:tcb_queue_t;
+        epptr = thread_state_ptr_get_blockingObject(state) as *mut endpoint_t;
+        queue = ep_ptr_get_queue(epptr);
+        queue = tcbEPDequeue(tptr, queue);
+        ep_ptr_set_queue(epptr, queue);
+        if queue.head == 0 as *mut tcb_t{
+            endpoint_ptr_set_state(epptr, EPState_Idle);
+        }
+        setThreadState(tptr, ThreadState_Inactive);
+    }else
+    if tmp == ThreadState_BlockedOnNotification{
+        cancelSignal(tptr, thread_state_ptr_get_blockingObject(state) as *mut notification_t);
+    }else
+    if tmp == ThreadState_BlockedOnReply{
+        let mut slot:*mut cte_t;
+        let mut callerCap:*mut cte_t;
+        unsafe{
+            (*tptr).tcbFault = seL4_Fault_NullFault_new();
+        }
+        slot = TCB_PTR_CTE_PTR(tptr, tcbReply);
+        unsafe{
+            callerCap = mdb_node_get_mdbNext((*slot).cteMDBNode) as *mut cte_t;
+        }
+        if (callerCap != 0) {
+            cteDeleteOne(callerCap);
+        }
+    }
+
+}
+
+#[inline(always)]
+pub fn ep_ptr_get_queue(epptr:*mut endpoint_t) -> tcb_queue_t {
+    let mut queue:tcb_queue_t;
+    queue.head = endpoint_ptr_get_epQueue_head(epptr) as *mut tcb_t;
+    queue.end = endpoint_ptr_get_epQueue_tail(epptr) as *mut tcb_t;
+    queue
+}
+
+#[inline(always)]
+pub fn ep_ptr_set_queue(epptr:*mut endpoint_t, queue:tcb_queue_t) {
+    endpoint_ptr_set_epQueue_head(epptr, queue.head as word_t);
+    endpoint_ptr_set_epQueue_tail(epptr, queue.end as word_t);
+}
+
+#[inline(always)]
+pub fn endpoint_ptr_get_epQueue_head(endpoint_ptr:*mut endpoint_t) -> u64 {
+    let mut ret:u64;
+    unsafe{
+        ret = ((*endpoint_ptr).words[1] & 0xffffffffffffffffu64) >> 0;
+    }
+    ret
+}
+
+#[inline(always)]
+pub fn endpoint_ptr_get_epQueue_tail(endpoint_ptr:*mut endpoint_t) -> u64 {
+    let mut ret:u64;
+    unsafe{
+        ret = ((*endpoint_ptr).words[0] & 0x7ffffffffcu64) >> 0;
+    }
+    if (true && (ret & (1u64 << (38)))) != 0 {
+        ret |= 0xffffff8000000000;
+    }
+    ret
+}
+
+#[inline(always)]
+pub fn endpoint_ptr_set_epQueue_head(endpoint_ptr:*mut endpoint_t, v64:u64) {
+    unsafe{
+        (*endpoint_ptr).words[1] &= !0xffffffffffffffffu64;
+        (*endpoint_ptr).words[1] |= (v64 << 0) & 0xffffffffffffffff;
+    }
+}
+
+#[inline(always)]
+pub fn endpoint_ptr_set_epQueue_tail(endpoint_ptr:*mut endpoint_t, v64:u64) {
+    unsafe{
+        (*endpoint_ptr).words[0] &= !0x7ffffffffcu64;
+        (*endpoint_ptr).words[0] |= (v64 >> 0) & 0x7ffffffffc;
+    }
+}
+
+#[inline(always)]
+pub fn endpoint_ptr_set_state(endpoint_ptr:*mut endpoint_t, v64:u64) {
+    unsafe{
+        (*endpoint_ptr).words[0] &= !0x3u64;
+        (*endpoint_ptr).words[0] |= (v64 << 0) & 0x3;
+    }
+}
+
+#[inline(always)]
+pub fn mdb_node_get_mdbNext(mdb_nod:mdb_node_t) -> u64 {
+    let mut ret:u64 = (mdb_nod.words[0] & 0x7ffffffffcu64) << 0;
+    if (true && (ret & (1u64 << (38)))) != 0 {
+        ret |= 0xffffff8000000000;
+    }
+    ret
+}

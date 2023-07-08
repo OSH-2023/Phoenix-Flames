@@ -190,7 +190,7 @@ fn doIPCTransfer(
 
 #[repr(C)]
 pub struct endpoint {
-    words: [u64; 2],
+    pub words: [u64; 2],
 }
 pub type endpoint_t = endpoint;
 

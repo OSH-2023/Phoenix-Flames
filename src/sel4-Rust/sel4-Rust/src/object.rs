@@ -450,6 +450,18 @@ pub fn thread_state_ptr_set_blockingObject(thread_state_ptr:*mut thread_state_t,
     }
 }
 
+#[inline(always)]
+pub fn thread_state_ptr_get_blockingObject(thread_state_ptr:*mut thread_state_t) {
+    let mut ret:u64;
+    unsafe{
+        ret = ((*thread_state_ptr).words[0] & 0x7ffffffff0u64) << 0;
+        if true && (ret & (1u64 << (38))) {
+            ret |= 0xffffff8000000000;
+        }
+        ret
+    }
+}
+
 //from constants.h
 pub enum priorityConstants {
     seL4_InvalidPrio = -1,
