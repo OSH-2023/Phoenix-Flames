@@ -298,7 +298,9 @@ pub fn fastpath_call(
         }
 
         // x86 获取ASID
-        let mut stored_hw_asid: pde_t;
+        let mut stored_hw_asid: pde_t=pde_t{
+            words:[0]
+        };
         // 这里的数组引用是否正确？
         stored_hw_asid.words[0] = cap_pml4_cap_get_capPML4MappedASID_fp(newVTable);
 
@@ -324,7 +326,7 @@ pub fn fastpath_call(
         // 目标线程出队
         endpoint_ptr_set_epQueue_head_np(ep_ptr, ((*(dest)).tcbEPNext) as word_t);
         if unlikely((*(dest)).tcbEPNext as u64 != 0) {
-            (*(&(*(dest))).tcbEPNext).tcbEPPrev = 0 as *const tcb;
+            (*(&(*(dest))).tcbEPNext).tcbEPPrev = 0 as *mut tcb;
         } else {
             endpoint_ptr_mset_epQueue_tail_state(ep_ptr, 0, endpoint_state::EPState_Idle as u64);
         }
@@ -422,7 +424,9 @@ pub fn fastpath_reply_recv(
             slowpath(syscall::SysReplyRecv as u64);
         }
         // x86
-        let mut stored_hw_asid: pde_t;
+        let mut stored_hw_asid: pde_t=pde_t{
+            words:[0]
+        };
         stored_hw_asid.words[0] = cap_pml4_cap_get_capPML4MappedASID(newVTable);
         let dom: dom_t = if domainConstants::maxDom as u64 != 0 {use_ksCurDomain as u64} else {0};
         if unlikely(!isHighestPrio(dom, (*caller).tcbPriority) != 0) {
@@ -443,7 +447,7 @@ pub fn fastpath_reply_recv(
         /* Place the thread in the endpoint queue */
         let endpointTail: *mut tcb_t = endpoint_ptr_get_epQueue_tail_fp(ep_ptr);
         if likely(!(endpointTail as u64) != 0) {
-            (*use_ksCurThread).tcbEPPrev = 0 as *const tcb;
+            (*use_ksCurThread).tcbEPPrev = 0 as *mut tcb;
             (*use_ksCurThread).tcbEPNext = 0 as *mut tcb;
 
             /* Set head/tail of queue and endpoint state. */

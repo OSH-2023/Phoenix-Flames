@@ -4,9 +4,8 @@
 
 use crate::failures::exception::*;
 use crate::failures::exception_t;
-use crate::types::prio_t;
+use crate::types::*;
 use crate::failures::*;
-use crate::types::word_t;
 use crate::object::*;
 use crate::failures::seL4_Error::*;
 use crate::object::priorityConstants::*;
@@ -17,11 +16,11 @@ use crate::kernel::tcb::CopyRegistersFlags::*;
 use crate::kernel::thread::*;
 use crate::kernel::cspace::lookupSlot_raw_ret_t;
 use crate::types::compound_types::*;
-use crate::cnode::*;
 use crate::kernel::fastpath::seL4_MessageInfo_t;
 use crate::kernel::tcb::invocation_label::*;
 use crate::object::cap_tag::cap_thread_cap;
 use crate::inlines::current_fault;
+use crate::kernel::notification::cteDeleteOne;
 
 pub const L2_BITMAP_SIZE: usize = (256 + (1 << 6) - 1) / (1 << 6);
 pub const wordRadix: u64 = 6;
@@ -42,6 +41,8 @@ extern "C" {
     pub static mut msgRegisters:[u8;2];
 }
 
+#[derive(Clone, Copy)]
+#[repr(C)]
 pub struct tcb_queue {
     pub head:*mut tcb_t,
     pub end:*mut tcb_t,
@@ -216,21 +217,21 @@ pub fn tcbEPAppend(tcb: *mut tcb_t, mut queue: tcb_queue_t) -> tcb_queue_t {
     queue
 }
 
-pub fn tcbEPDequeue(tcb:*mut tcb_t, mut queue:tcb_queue_t) -> tcb_queue_t{
+pub fn tcbEPDequeue(tcb:*mut tcb_t, queue:*mut tcb_queue_t) -> tcb_queue_t{
     unsafe{
         if (*tcb).tcbEPPrev != 0 as (*mut tcb) {
             (*(*tcb).tcbEPPrev).tcbEPNext = (*tcb).tcbEPNext;
         } else {
-            queue.head = (*tcb).tcbEPNext;
+            (*queue).head = (*tcb).tcbEPNext;
         }
 
         if (*tcb).tcbEPNext != 0 as (*mut tcb) {
             (*(*tcb).tcbEPNext).tcbEPPrev = (*tcb).tcbEPPrev;
         } else {
-            queue.end = (*tcb).tcbEPPrev;
+            (*queue).end = (*tcb).tcbEPPrev;
         }
 
-        queue
+        *queue
     }
 }
 
@@ -246,28 +247,13 @@ pub fn setExtraBadge(bufferPtr:*mut word_t, badge:word_t, i:word_t){
     }
 }
 
-pub fn setupCallerCap(sender:*mut tcb_t, receiver:*mut tcb_t, canGrant:u64){
-    let mut replySlot:*mut cte_t;
-    let mut callerSlot:*mut cte_t;
-    let mut masterCap:cap_t;
-    let mut callerCap:cap_t;
-    unsafe{
-        setThreadState(sender, ThreadState_BlockedOnReply as u64);
-    }
-    replySlot = TCB_PTR_CTE_PTR(sender, tcbReply as u64);
-    unsafe{
-        masterCap = (*replySlot).cap;
-        callerCap = (*callerSlot).cap;
-    }
-    callerSlot = TCB_PTR_CTE_PTR(receiver, tcbCaller as u64);
-    unsafe{
-        cteInsert(cap_reply_cap_new(canGrant, 0, sender as u64),replySlot, callerSlot);
-    }
+extern "C" {
+    pub fn setupCallerCap(sender:*mut tcb_t, receiver:*mut tcb_t, canGrant:u64);
 }
 
 pub fn deleteCallerCap(receiver:*mut tcb_t) {
     let callerSlot:*mut cte_t = TCB_PTR_CTE_PTR(receiver, tcbCaller as u64);
-    cteDeleteOne(callerSlot);
+    unsafe{cteDeleteOne(callerSlot);}
 }
 
 pub fn lookupExtraCaps(thread:*mut tcb_t, bufferPtr:*mut word_t, info:seL4_MessageInfo_t) -> exception_t{

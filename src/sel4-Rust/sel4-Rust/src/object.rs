@@ -68,11 +68,11 @@ pub struct tcb {
     pub tcbIPCBuffer: word_t,
 
     /* Previous and next pointers for scheduler queues , 2 words */
-    pub tcbSchedNext: *const tcb,
-    pub tcbSchedPrev: *const tcb,
+    pub tcbSchedNext: *mut tcb,
+    pub tcbSchedPrev: *mut tcb,
     /* Preivous and next pointers for endpoint and notification queues, 2 words */
     pub tcbEPNext: *mut tcb,
-    pub tcbEPPrev: *const tcb,
+    pub tcbEPPrev: *mut tcb,
 }
 pub type tcb_t = tcb;
 
