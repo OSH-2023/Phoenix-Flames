@@ -1,4 +1,4 @@
-// jwh 7.5 20:00
+// jwh 7.8 20:00
 #![allow(non_camel_case_types)]
 #![allow(non_upper_case_globals)]
 #![allow(non_snake_case)]
@@ -6,10 +6,11 @@
 use crate::kernel::cspace::*;
 use crate::kernel::tcb::*;
 use crate::failures::*;
-use crate::object::*
+use crate::object::*;
 use crate::machine::registerset::*;
-use crate::kernel::thread::*;
 use crate::types::*;
+use crate::kernel::thread::*;
+use crate::types::basic_types::*;
 
 #[derive(Clone, Copy)]
 #[repr(C)]
@@ -18,7 +19,7 @@ pub struct finaliseSlot_ret {
     pub success: bool_t,
     pub cleanupInfo: cap_t,
 }
-pub type finalliseSlot_ret_t = finalliseSlot_ret;
+pub type finaliseSlot_ret_t = finaliseSlot_ret;
 
 #[derive(Clone, Copy)]
 #[repr(C)]
@@ -45,7 +46,7 @@ pub extern "C" fn invokeCNodeDelete(destSlot: *mut cte_t) -> u64 {
     cteDelete(destSlot, 1u64)
 }
 
-#[no_mangle]
+/*#[no_mangle]
 pub extern "C" fn invokeCNodeCancelBadgedSends(cap: cap_t) -> u64 {
     let badge = cap_endpoint_cap_get_capEPBadge(cap);
     if badge != 0u64 {
@@ -53,7 +54,7 @@ pub extern "C" fn invokeCNodeCancelBadgedSends(cap: cap_t) -> u64 {
         cancelBadgedSends(ep, badge);
     }
     0u64
-}
+}*/
 
 #[no_mangle]
 pub extern "C" fn invokeCNodeInsert(cap: cap_t, srcSlot: *mut cte_t, destSlot: *mut cte_t) -> u64 {
@@ -205,7 +206,7 @@ pub extern "C" fn cteSwap(cap1: cap_t, slot1: *mut cte_t, cap2: cap_t, slot2: *m
 
     mdb2 = (*slot2).cteMDBNode;
     (*slot1).cteMDBNode = mdb2;
-    (*slot2).cteMDBNode = mdb1;
+    (*slot2).cteMDBNode = m2db1;
 
     prev_ptr = mdb_node_get_mdbPrev(mdb2);
     if prev_ptr != 0 {
@@ -415,32 +416,7 @@ pub extern "C" fn setupReplyMaster(thread: *mut tcb_t) {
     }
 }
 
-#[no_mangle]
-pub extern "C" fn isMDBParentOf(cte_a: *mut cte_t, cte_b: *mut cte_t) -> bool_t {
-    if mdb_node_get_mdbRevocable((*cte_a).cteMDBNode) == 0u64 {
-        return 0u64;
-    }
-    if sameRegionAs((*cte_a).cap, (*cte_b).cap) == 0u64 {
-        return 0u64;
-    }
-    let cap_type = cap_get_capType((*cte_a).cap);
-    if cap_type == cap_tag_t::cap_endpoint_cap as u64 {
-        let badge = cap_endpoint_cap_get_capEPBadge((*cte_a).cap);
-        if badge == 0u64 {
-            return 1u64;
-        }
-        return ((badge == cap_endpoint_cap_get_capEPBadge((*cte_b).cap))
-            && mdb_node_get_mdbFirstBadged((*cte_b).cteMDBNode) == 0u64) as u64;
-    } else if cap_type == cap_tag_t::cap_notification_cap as u64 {
-        let badge = cap_notification_cap_get_capNtfnBadge((*cte_a).cap);
-        if badge == 0u64 {
-            return 1u64;
-        }
-        return ((badge == cap_notification_cap_get_capNtfnBadge((*cte_b).cap))
-            && mdb_node_get_mdbFirstBadged((*cte_b).cteMDBNode) == 0u64) as u64;
-    }
-    1u64
-}
+
 
 pub unsafe extern "C" fn ensureNoChildren(slot: *mut cte_t) -> u64 {
     if mdb_node_get_mdbNext((*slot).cteMDBNode) != 0u64 {
