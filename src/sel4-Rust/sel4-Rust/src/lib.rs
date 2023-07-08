@@ -3,7 +3,8 @@
 #![feature(panic_info_message)]
 #![feature(core_intrinsics)]
 
-mod lang_items;
+#[macro_use]
+pub mod lang_items;
 mod kernel;
 mod types;
 pub mod libsel4;

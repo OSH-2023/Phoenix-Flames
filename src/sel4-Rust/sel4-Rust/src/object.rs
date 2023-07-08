@@ -89,6 +89,7 @@ pub fn TCB_PTR_CTE_PTR(p:*mut tcb_t, i:u64) -> *mut cte_t{
 
 // 2. from arch/object/structures.h
 #[derive(Clone,Copy)]
+#[repr(C)]
 pub struct arch_tcb {
     pub tcbContext: user_context_t,
 }
@@ -135,6 +136,7 @@ pub enum tcb_cnode_index {
 
 // 3. from arch/object/structures_gen.h
 #[derive(Clone,Copy)]
+#[repr(C)]
 pub struct mdb_node {
     pub words: [u64; 2],
 }
@@ -148,6 +150,7 @@ pub struct notification {
 pub type notification_t=notification;
 
 #[derive(Clone,Copy)]
+#[repr(C)]
 pub struct thread_state {
     pub words: [u64; 3],
 }
@@ -174,9 +177,8 @@ pub struct seL4_Fault {
 }
 pub type seL4_Fault_t=seL4_Fault;
 
-// try this
-#[no_mangle]
-pub extern "C" fn notification_ptr_set_state(notification_ptr: *mut notification_t, v64:u64) {
+
+pub fn notification_ptr_set_state(notification_ptr: *mut notification_t, v64:u64) {
     //assert_eq!((((!0x3u64 >> 0) | 0x0) & v64) ,  if false && (v64 & (1u64 << (38))) != 0 { 0x0u64 }else{ 0u64 }, "seL4 failed assertion 'object.rs' at :line 120 in function notification_ptr_set_state\n");
     unsafe{
         (*notification_ptr).words[0] &= !0x3u64;

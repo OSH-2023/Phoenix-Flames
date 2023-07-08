@@ -26,7 +26,8 @@ pub type timestamp_t = u64;
 
 pub const wordBits: u64 = 64;
 
-#[derive(Clone)]
+#[derive(Clone,Copy)]
+#[repr(C)]
 pub struct kernel_frame {
     pub paddr: paddr_t,
     pub pptr: pptr_t,
@@ -43,7 +44,8 @@ pub type bool_t = word_t;
  * it represents the addresses in the set [start..-1] union [0..end). This is
  * possible after address translation and fine for e.g. device memory regions.
  */
-#[derive(Clone)]
+#[derive(Clone,Copy)]
+#[repr(C)]
 pub struct region {
     pub start: pptr_t, /* inclusive */
     pub end: pptr_t,   /* exclusive */
@@ -51,7 +53,8 @@ pub struct region {
 pub type region_t = region;
 
 /** A region [start..end) of physical memory addresses. */
-#[derive(Clone)]
+#[derive(Clone,Copy)]
+#[repr(C)]
 pub struct p_region {
     pub start: paddr_t, /* inclusive */
     pub end: paddr_t,   /* exclusive */
@@ -59,7 +62,8 @@ pub struct p_region {
 pub type p_region_t = p_region;
 
 /** A region [start..end) of user-virtual addresses. */
-#[derive(Clone)]
+#[derive(Clone,Copy)]
+#[repr(C)]
 pub struct v_region {
     pub start: vptr_t, /* inclusive */
     pub end: vptr_t,   /* exclusive */

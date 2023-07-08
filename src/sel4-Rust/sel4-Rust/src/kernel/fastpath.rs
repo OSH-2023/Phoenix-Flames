@@ -111,39 +111,51 @@ pub enum notification_state {
 }
 
 // 数据类型
-#[repr(C)]
 #[derive(Copy, Clone)]
+#[repr(C)]
 pub struct seL4_MessageInfo {
     words: [u64; 1],
 }
 pub type seL4_MessageInfo_t = seL4_MessageInfo;
 
+#[derive(Copy, Clone)]
+#[repr(C)]
 pub struct seL4_Fault {
     words:[u64;2],
 }
 pub type seL4_Fault_t = seL4_Fault;
 
+#[derive(Copy, Clone)]
+#[repr(C)]
 pub struct endpoint {
     words: [u64; 2],
 }
 pub type endpoint_t = endpoint;
 
+#[derive(Copy, Clone)]
+#[repr(C)]
 pub struct pml4e {
     words: [u64; 1],
 }
 pub type pml4e_t = pml4e;
 pub type vspace_root_t = pml4e_t;
 
+#[derive(Copy, Clone)]
+#[repr(C)]
 pub struct pde {
     words: [u64; 1],
 }
 pub type pde_t = pde;
 
+#[derive(Copy, Clone)]
+#[repr(C)]
 pub struct thread_state {
     words: [u64; 3],
 }
 pub type thread_state_t = thread_state;
 
+#[derive(Copy, Clone)]
+#[repr(C)]
 pub struct mdb_node {
     words: [u64; 2],
 }

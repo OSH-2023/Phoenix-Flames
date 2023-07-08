@@ -22,7 +22,8 @@ pub type prio_t = word_t;
 pub type ticks_t = u64;
 pub type time_t = u64;
 
-// #[derive(Clone)]
+// #[derive(Clone,Copy)]
+#[repr(C)]
 // pub enum domainConstants {
 //     minDom = 0,
 //     maxDom = CONFIG_NUM_DOMAINS - 1,
@@ -32,7 +33,8 @@ pub type time_t = u64;
 //     numDomains = CONFIG_NUM_DOMAINS
 // };
 
-#[derive(Clone)]
+#[derive(Clone,Copy)]
+#[repr(C)]
 pub struct cap_transfer {
     pub ctReceiveRoot: cptr_t,
     pub ctReceiveIndex: cptr_t,
@@ -40,7 +42,8 @@ pub struct cap_transfer {
 }
 pub type cap_transfer_t = cap_transfer;
 
-#[derive(Clone)]
+#[derive(Clone,Copy)]
+#[repr(C)]
 pub enum ctLimits {
     capTransferDataSize = 3,
 }
