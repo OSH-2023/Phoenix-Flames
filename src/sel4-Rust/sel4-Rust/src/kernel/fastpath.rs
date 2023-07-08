@@ -114,7 +114,7 @@ pub enum notification_state {
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct seL4_MessageInfo {
-    words: [u64; 1],
+    pub words: [u64; 1],
 }
 pub type seL4_MessageInfo_t = seL4_MessageInfo;
 
@@ -171,7 +171,7 @@ extern "C" {
     // 这个函数没有找到定义
     fn seL4_MessageInfo_get_length(info: seL4_MessageInfo_t) -> word_t;
     // 在kernal.i中定义
-    fn seL4_Fault_get_seL4_FaultType(seL4_Fault: seL4_Fault_t) -> u64;
+    pub fn seL4_Fault_get_seL4_FaultType(seL4_Fault: seL4_Fault_t) -> u64;
     // NODE_STATE宏的定义如何实现？
     // 在kernal.i中
     fn cap_capType_equals(cap: cap_t, cap_type_tag: u64) -> bool_t;
@@ -179,7 +179,7 @@ extern "C" {
     fn lookup_fp(cap: cap_t,cptr: cptr_t) -> cap_t;
     // TCB_PTR_CTE_PTR还没有解决
     fn cap_endpoint_cap_get_capCanSend(cap: cap_t) -> u64;
-    fn cap_endpoint_cap_get_capEPPtr(cap: cap_t) -> u64;
+    pub fn cap_endpoint_cap_get_capEPPtr(cap: cap_t) -> u64;
     fn endpoint_ptr_get_epQueue_head(endpoint_ptr: *mut endpoint_t) -> u64;
     fn endpoint_ptr_get_state(endpoint_ptr: *mut endpoint_t) -> u64;
     fn cap_vtable_cap_get_vspace_root_fp(vtable_cap: cap_t) -> *mut vspace_root_t;
@@ -190,7 +190,7 @@ extern "C" {
     fn cap_endpoint_cap_get_capCanGrantReply(cap: cap_t) -> u64;
     fn endpoint_ptr_set_epQueue_head_np(ep_ptr: *mut endpoint_t, epQueue_head: word_t);
     fn endpoint_ptr_mset_epQueue_tail_state(ep_ptr: *mut endpoint_t, epQueue_tail: word_t,state: word_t);
-    fn cap_endpoint_cap_get_capEPBadge(cap: cap_t) -> u64;
+    pub fn cap_endpoint_cap_get_capEPBadge(cap: cap_t) -> u64;
     fn thread_state_ptr_set_tsType_np(ts_ptr: *mut thread_state_t, tsType: word_t);
     fn thread_state_ptr_get_blockingIPCCanGrant(thread_state_ptr: *mut thread_state_t);
     fn cap_reply_cap_ptr_new_np(cap_ptr: *mut cap_t, capReplyCanGrant: word_t, 
@@ -200,8 +200,8 @@ extern "C" {
                                                              mdbRevocable: word_t, mdbFirstBadged: word_t);
     fn fastpath_copy_mrs(length: word_t, src: *mut tcb_t, dest: *mut tcb_t);
     fn switchToThread_fp(thread: *mut tcb_t, vroot: *mut vspace_root_t, stored_hw_asid: pde_t);
-    fn wordFromMessageInfo(mi: seL4_MessageInfo_t) -> word_t;
-    fn seL4_MessageInfo_set_capsUnwrapped(seL4_MessageInfo: seL4_MessageInfo_t, v64: u64) -> seL4_MessageInfo_t;
+    pub fn wordFromMessageInfo(mi: seL4_MessageInfo_t) -> word_t;
+    pub fn seL4_MessageInfo_set_capsUnwrapped(seL4_MessageInfo: seL4_MessageInfo_t, v64: u64) -> seL4_MessageInfo_t;
     fn fastpath_restore(badge: word_t, msgInfo: word_t, cur_thread: *mut tcb_t);
 
     fn cap_endpoint_cap_get_capCanReceive(cap: cap_t) -> u64;

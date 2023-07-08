@@ -1,4 +1,3 @@
-
 use crate::types::word_t;
 use crate::object::tcb_t;
 use crate::object::_thread_state::ThreadState_IdleThreadState;
@@ -6,7 +5,6 @@ use crate::object::_thread_state::ThreadState_Running;
 use crate::object::*;
 use core::panic::*;
 
-#[cfg(not(smp))]
 macro_rules! NODE_STATE {
     ($i:ident) => {
         $i
@@ -377,7 +375,7 @@ use crate::kernel::fastpath::cap_endpoint_cap_get_capEPBadge;
 pub fn seL4_MessageInfo_get_capsUnwrapped(seL4_MessageInfo: seL4_MessageInfo_t) -> u64 {
     (seL4_MessageInfo.words[0] & 0xe00u64) >> 9
 }
-
+use crate::kernel::tcb::cteInsert;
 pub fn transferCaps(
     info: seL4_MessageInfo_t,
     endpoint: &mut endpoint_t,
