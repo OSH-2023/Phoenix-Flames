@@ -269,57 +269,57 @@ pub fn fastpath_call(
         // 不可以有额外能力，长度不符合要求，没有保存的错误，否则转入slowpath
         let fault_type = seL4_Fault_get_seL4_FaultType(&(*use_ksCurThread).tcbFault);
         if unlikely(fastpath_mi_check(msgInfo)!=0 || 
-                    fault_type != use_seL4_Fault_tag.seL4_Fault_NullFault as u64) {
-            slowpath(use_syscall.SysCall);
+                    fault_type != seL4_Fault_tag::seL4_Fault_NullFault as u64) {
+            slowpath(syscall::SysCall);
         }
         // 查找能力
         let ep_cap = lookup_fp(
-            &(*((((((use_ksCurThread as word_t)&!(1014 as u64))) as *mut cte_t)+use_tcb_cnode_index.tcbCTable))).cap, 
+            &(*((((((use_ksCurThread as word_t)&!(1014 as u64))) as *mut cte_t)+tcb_cnode_index::tcbCTable))).cap, 
             cptr);
         // 是否是端点
-        if unlikely(!cap_capType_equals(ep_cap, use_cap_tag.cap_endpoint_cap) ||
+        if unlikely(!cap_capType_equals(ep_cap, cap_tag::cap_endpoint_cap) ||
                     !cap_endpoint_cap_get_capCanSend(ep_cap)) {
-            slowpath(use_syscall.SysCall);
+            slowpath(syscall::SysCall);
         }
         // 获取端点地址
         let ep_ptr: *const endpoint_t = (cap_endpoint_cap_get_capEPPtr(ep_cap)) as *const endpoint_t;
         // 获取目标线程tcb地址
         let dest: *const tcb_t = (endpoint_ptr_get_epQueue_head(ep_ptr)) as *const tcb_t;
         // 检查等待接受的线程
-        if unlikely(endpoint_ptr_get_state(ep_ptr) != use_endpoint_state.EPState_Recv) {
-            slowpath(use_syscall.SysCall);
+        if unlikely(endpoint_ptr_get_state(ep_ptr) != endpoint_state::EPState_Recv) {
+            slowpath(syscall::SysCall);
         }
         let dest = (endpoint_ptr_get_epQueue_head(ep_ptr)) as *mut tcb_t;
         // 获取目标线程的VTable
         let newVTable: *const cap_t = 
-            &(*((((dest as word_t)&!(1014 as u64)) as *mut cte_t)+use_tcb_cnode_index.tcbVTable)).cap;
+            &(*((((dest as word_t)&!(1014 as u64)) as *mut cte_t)+tcb_cnode_index::tcbVTable)).cap;
         // 获取vspace根地址
         let cap_pd: *const vspace_root_t = cap_vtable_cap_get_vspace_root_fp(newVTable);
         // 确保VTable合法
         if unlikely(! isValidVTableRoot_fp(newVTable)) {
-            slowpath(use_syscall.SysCall);
+            slowpath(syscall::SysCall);
         }
 
         // x86 获取ASID
         let mut stored_hw_asid: pde_t;
         // 这里的数组引用是否正确？
-        stored_hw_asid.words.0 = cap_pml4_cap_get_capPML4MappedASID_fp(use_tcb_cnode_index.newVTable);
+        stored_hw_asid.words.0 = cap_pml4_cap_get_capPML4MappedASID_fp(tcb_cnode_index::newVTable);
 
         // let gcc optimise this out for 1 domain
-        let dom: dom_t = if use_domainConstants.maxDom!=0 {use_ksCurDomain} else {0};
+        let dom: dom_t = if domainConstants::maxDom!=0 {use_ksCurDomain} else {0};
         // 保证现在只有空闲和低优先级线程在调度中
         if unlikely(&(*(dest)).tcbPriority < (&(*(use_ksCurThread)).tcbPriority) &&
                     !isHighestPrio(dom, &(*(dest)).tcbPriority)) {
-            slowpath(use_syscall.SysCall);
+            slowpath(syscall::SysCall);
         }
         // 保证端点有被授予的能力
         if unlikely(!cap_endpoint_cap_get_capCanGrant(ep_cap) &&
                         !cap_endpoint_cap_get_capCanGrantReply(ep_cap)) {
-            slowpath(use_syscall.SysCall);
+            slowpath(syscall::SysCall);
         }
         // 保证原始的调用者线程正在现在的域，可以被直接调度
-        if unlikely(&(*(dest)).tcbDomain != use_ksCurDomain && 0 < use_domainConstants.maxDom) {
-            slowpath(use_syscall.SysCall);
+        if unlikely(&(*(dest)).tcbDomain != use_ksCurDomain && 0 < domainConstants::maxDom) {
+            slowpath(syscall::SysCall);
         }
 
         // ------------------------------------
@@ -329,18 +329,18 @@ pub fn fastpath_call(
         if unlikely(&(*(dest)).tcbEPNext) {
             *(&(*(dest)).tcbEPNext).tcbEPPrev = 0 as u64;
         } else {
-            endpoint_ptr_mset_epQueue_tail_state(ep_ptr, 0, use_endpoint_state.EPState_Idle);
+            endpoint_ptr_mset_epQueue_tail_state(ep_ptr, 0, endpoint_state::EPState_Idle);
         }
         let bagde: word_t = cap_endpoint_cap_get_capEPBadge(&ep_cap);
         thread_state_ptr_set_tsType_np((&use_ksCurThread).tcbState,
-                                        &use_thread_state.ThreadState_BlockedOnReply);
+                                        &thread_state::ThreadState_BlockedOnReply);
 
         // 获取发送者用于回复的能力插槽
         let replySlot: *const cte_t = 
-            (((use_ksCurThread as word_t)&!(1014 as u64)) as *mut cte_t)+use_tcb_cnode_index.tcbReply;
+            (((use_ksCurThread as word_t)&!(1014 as u64)) as *mut cte_t)+tcb_cnode_index::tcbReply;
         // 获取目标调用者的能力插槽
         let callerSlot: *const cte_t = 
-            (((use_ksCurThread as word_t)&!(1014 as u64)) as *mut cte_t)+use_tcb_cnode_index.tcbCaller;
+            (((use_ksCurThread as word_t)&!(1014 as u64)) as *mut cte_t)+tcb_cnode_index::tcbCaller;
 
         // 把回复的能力插入其中
         let replyCanGrant:  word_t = thread_state_ptr_get_blockingIPCCanGrant(dest.tcbState);
@@ -354,7 +354,7 @@ pub fn fastpath_call(
 
         // 目标线程运行
         thread_state_ptr_set_tsType_np(dest.tcbState,
-                                    use_thread_state.ThreadState_Running);
+                                    thread_state::ThreadState_Running);
         switchToThread_fp(dest, cap_pd, stored_hw_asid);
 
         msgInfo = wordFromMessageInfo(seL4_MessageInfo_set_capsUnwrapped(info, 0));
@@ -393,56 +393,56 @@ pub fn fastpath_reply_recv(
         let length: word_t = seL4_MessageInfo_get_length(info);
         let fault_type: word_t = seL4_Fault_get_seL4_FaultType(&(*(use_ksCurThread)).tcbFault);
         // 一番检查
-        if unlikely(fastpath_mi_check(msgInfo) || fault_type != use_seL4_Fault_tag.seL4_Fault_NullFault as u64) {
-            slowpath(use_syscall.SysReplyRecv);
+        if unlikely(fastpath_mi_check(msgInfo) || fault_type != seL4_Fault_tag::seL4_Fault_NullFault as u64) {
+            slowpath(syscall::SysReplyRecv);
         }
         let ep_cap: cap_t = lookup_fp(
-            ((((use_ksCurThread as word_t)&!(1014 as u64)) as *mut cte_t)+use_tcb_cnode_index.tcbCTable).cap,
+            ((((use_ksCurThread as word_t)&!(1014 as u64)) as *mut cte_t)+tcb_cnode_index::tcbCTable).cap,
             cptr);
-        if unlikely(!cap_capType_equals(ep_cap, use_cap_tag.cap_endpoint_cap) ||
+        if unlikely(!cap_capType_equals(ep_cap, cap_tag::cap_endpoint_cap) ||
                     !cap_endpoint_cap_get_capCanReceive(ep_cap)) {
-            slowpath(use_syscall.SysReplyRecv);
+            slowpath(syscall::SysReplyRecv);
         }
         if unlikely(&(*(use_ksCurThread)).tcbBoundNotification &&
-                    notification_ptr_get_state(&(*(use_ksCurThread)).tcbBoundNotification) == use_notification_state.NtfnState_Active) {
-            slowpath(use_syscall.SysReplyRecv);
+                    notification_ptr_get_state(&(*(use_ksCurThread)).tcbBoundNotification) == notification_state::NtfnState_Active) {
+            slowpath(syscall::SysReplyRecv);
         }
         let ep_ptr: *const endpoint_t = (cap_endpoint_cap_get_capEPPtr(ep_cap)) as *const endpoint_t;
         
-        if unlikely(endpoint_ptr_get_state(ep_ptr) == use_endpoint_state.EPState_Send) {
-            slowpath(use_syscall.SysReplyRecv);
+        if unlikely(endpoint_ptr_get_state(ep_ptr) == endpoint_state::EPState_Send) {
+            slowpath(syscall::SysReplyRecv);
         }
         let callerSlot: *const cte_t = 
-            (((use_ksCurThread as word_t)&!(1014 as u64)) as *mut cte_t)+use_tcb_cnode_index.tcbCaller;
+            (((use_ksCurThread as word_t)&!(1014 as u64)) as *mut cte_t)+tcb_cnode_index::tcbCaller;
         let callerCap: cap_t = callerSlot.cap;
         if unlikely(!fastpath_reply_cap_check(callerCap)) {
-            slowpath(use_syscall.SysReplyRecv);
+            slowpath(syscall::SysReplyRecv);
         }
         let caller: *const tcb_t = (cap_reply_cap_get_capTCBPtr(callerCap)) as *const tcb_t;
         fault_type = seL4_Fault_get_seL4_FaultType(&caller.tcbFault);
-        if unlikely(fault_type != use_seL4_Fault_tag.seL4_Fault_NullFault && fault_type != use_seL4_Fault_tag.seL4_Fault_VMFault) {
-            slowpath(use_syscall.SysReplyRecv);
+        if unlikely(fault_type != seL4_Fault_tag::seL4_Fault_NullFault && fault_type != seL4_Fault_tag::seL4_Fault_VMFault) {
+            slowpath(syscall::SysReplyRecv);
         }
-        let newVTable: cap_t = &(*((((caller as word_t)&!(1014 as u64)) as *mut cte_t)+use_tcb_cnode_index.tcbVTable)).cap;
+        let newVTable: cap_t = &(*((((caller as word_t)&!(1014 as u64)) as *mut cte_t)+tcb_cnode_index::tcbVTable)).cap;
         let cap_pd: *const vspace_root_t = cap_vtable_cap_get_vspace_root_fp(newVTable);
         if unlikely(! isValidVTableRoot_fp(newVTable)) {
-            slowpath(use_syscall.SysReplyRecv);
+            slowpath(syscall::SysReplyRecv);
         }
         // x86
         let mut stored_hw_asid: pde_t;
         stored_hw_asid.words[0] = cap_pml4_cap_get_capPML4MappedASID(newVTable);
-        let dom: dom_t = if use_domainConstants.maxDom!=0 {use_ksCurDomain} else {0};
+        let dom: dom_t = if domainConstants::maxDom!=0 {use_ksCurDomain} else {0};
         if unlikely(!isHighestPrio(dom, *caller.tcbPriority)) {
-            slowpath(use_syscall.SysReplyRecv);
+            slowpath(syscall::SysReplyRecv);
         }
-        if unlikely(*caller.tcbDomain != use_ksCurDomain && 0 < use_domainConstants.maxDom) {
-            slowpath(use_syscall.SysReplyRecv);
+        if unlikely(*caller.tcbDomain != use_ksCurDomain && 0 < domainConstants::maxDom) {
+            slowpath(syscall::SysReplyRecv);
         }
 
         // ------------------------------------
 
         thread_state_ptr_mset_blockingObject_tsType(
-            use_ksCurThread.tcbState, ep_ptr as word_t, use_thread_state.ThreadState_BlockedOnReceive);
+            use_ksCurThread.tcbState, ep_ptr as word_t, thread_state::ThreadState_BlockedOnReceive);
 
         thread_state_ptr_set_blockingIPCCanGrant(use_ksCurThread.tcbState,
                                                 cap_endpoint_cap_get_capCanGrant(ep_cap));
@@ -456,7 +456,7 @@ pub fn fastpath_reply_recv(
             /* Set head/tail of queue and endpoint state. */
             endpoint_ptr_set_epQueue_head_np(ep_ptr, (use_ksCurThread) as word_t);
             endpoint_ptr_mset_epQueue_tail_state(ep_ptr, (use_ksCurThread) as word_t,
-                                                use_endpoint_state.EPState_Recv);
+                                                endpoint_state::EPState_Recv);
         } else {
 
             /* Append current thread onto the queue. */
@@ -465,7 +465,7 @@ pub fn fastpath_reply_recv(
             use_ksCurThread.tcbEPNext = 0 as u64;
 
             /* Update tail of queue. */
-            endpoint_ptr_mset_epQueue_tail_state(ep_ptr, ((use_ksCurThread)) as word_t, use_endpoint_state.EPState_Recv);
+            endpoint_ptr_mset_epQueue_tail_state(ep_ptr, ((use_ksCurThread)) as word_t, endpoint_state::EPState_Recv);
         }
 
         /* Delete the reply cap. */
@@ -482,7 +482,7 @@ pub fn fastpath_reply_recv(
         fastpath_copy_mrs(length, use_ksCurThread, caller);
 
         /* Dest thread is set Running, but not queued. */
-        thread_state_ptr_set_tsType_np(caller.tcbState, use_thread_state.ThreadState_Running);
+        thread_state_ptr_set_tsType_np(caller.tcbState, thread_state::ThreadState_Running);
         switchToThread_fp(caller, cap_pd, stored_hw_asid);
 
         msgInfo = wordFromMessageInfo(seL4_MessageInfo_set_capsUnwrapped(info, 0));
