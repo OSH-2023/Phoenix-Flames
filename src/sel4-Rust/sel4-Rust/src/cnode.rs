@@ -3,18 +3,12 @@
 #![allow(non_upper_case_globals)]
 #![allow(non_snake_case)]
 
-use crate::cspace::*;
-use crate::errors::*;
+use crate::kernel::cspace::*;
+use crate::kernel::tcb::*;
 use crate::failures::*;
-use crate::invocation::*;
-use crate::model::statedata::*;
-use crate::object::arch_structures::*;
-use crate::object::cap::*;
-use crate::object::objecttype::*;
-use crate::registerset::*;
-use crate::structures::*;
-use crate::syscall::*;
-use crate::thread::*;
+use crate::object::*
+use crate::machine::registerset::*;
+use crate::kernel::thread::*;
 use crate::types::*;
 
 #[derive(Clone, Copy)]
