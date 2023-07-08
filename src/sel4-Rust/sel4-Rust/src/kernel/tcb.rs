@@ -5,15 +5,49 @@
 use crate::failures::exception::*;
 use crate::failures::exception_t;
 use crate::types::prio_t;
+use crate::failures::*;
+use crate::types::word_t;
+use crate::object::*;
+use crate::failures::seL4_Error::*;
+use crate::object::priorityConstants::*;
+use crate::types::basic_types::*;
+use crate::object::_thread_state::*;
+use crate::object::tcb_cnode_index::*;
+use crate::kernel::tcb::CopyRegistersFlags::*;
+use crate::kernel::thread::*;
 
 pub const L2_BITMAP_SIZE: usize = (256 + (1 << 6) - 1) / (1 << 6);
 pub const wordRadix: u64 = 6;
 pub const wordBits: u64 = 1 << 6;
 
-static mut ksReadyQueuesL1Bitmap:[u64; 1];
-static mut ksReadyQueuesL2Bitmap: [[u64; L2_BITMAP_SIZE]; 1];
-static mut ksReadyQueues: [tcb_queue_t;256];
-static mut ksCurThread:*mut tcb_t;
+const current_syscall_error:syscall_error_t = 0;
+
+pub struct tcb_queue {
+    pub head:*mut tcb_t,
+    pub end:*mut tcb_t,
+}
+pub type tcb_queue_t = tcb_queue;
+
+macro_rules! MASK {
+    ($x:expr) => {
+        (1u64 << ($x)) - 1u64
+    };
+}
+
+macro_rules! BIT {
+    ($x:expr) => {
+        (1u64 << ($x))
+    };
+}
+
+pub fn TCB_PTR_CTE_PTR(p:*mut tcb_t, i:u64) -> *mut cte_t{
+    ((((p as word_t) & (!MASK!(10))) as *mut cte_t) + i) as *mut cte_t
+}
+
+static mut ksReadyQueuesL1Bitmap:[u64; 1] = 0;
+static mut ksReadyQueuesL2Bitmap: [[u64; L2_BITMAP_SIZE]; 1] = 0;
+static mut ksReadyQueues: [tcb_queue_t;256] = 0 as tcb_queue_t;
+static mut ksCurThread:*mut tcb_t = 0 as *mut tcb_t;
 
 pub fn checkPrio(prio:prio_t, auth:*mut tcb_t) -> exception_t{
     let mut mcp:prio_t;
@@ -21,12 +55,13 @@ pub fn checkPrio(prio:prio_t, auth:*mut tcb_t) -> exception_t{
         mcp = (*auth).tcbMCP;
     }
     //     assert(mcp <= seL4_MaxPrio);
-
-    if(prio > mcp){
-        current_syscall_error.type = seL4_RangeError;
-        current_syscall_error.rangeErrorMin = seL4_MinPrio;
-        current_syscall_error.rangeErrorMax = mcp;
-        return EXCEPTION_SYSCALL_ERROR;
+    unsafe{
+        if(prio > mcp){
+            current_syscall_error.error_type = seL4_RangeError;
+            current_syscall_error.rangeErrorMin = seL4_MinPrio;
+            current_syscall_error.rangeErrorMax = mcp;
+            return EXCEPTION_SYSCALL_ERROR;
+        }
     }
     EXCEPTION_NONE
 }
@@ -34,16 +69,20 @@ pub fn checkPrio(prio:prio_t, auth:*mut tcb_t) -> exception_t{
 pub fn addToBitmap(cpu:word_t, dom:word_t, prio:word_t){
     let l1index:word_t = prio_to_l1index(prio);
     let l1index_inverted:word_t = invert_l1index(l1index);
-    ksReadyQueuesL1Bitmap[dom as u64] |= BIT!(l1index);
-    ksReadyQueuesL2Bitmap[dom][l1index_inverted] |= BIT!(prio & MASK!(wordRadix));
+    unsafe{
+        ksReadyQueuesL1Bitmap[dom as u64] |= BIT!(l1index);
+        ksReadyQueuesL2Bitmap[dom][l1index_inverted] |= BIT!(prio & MASK!(wordRadix));
+    }
 }
 
 pub fn removeFromBitmap(cpu:word_t, dom:word_t, prio:word_t) {
     let l1index:word_t = prio_to_l1index(prio);
     let l1index_inverted = invert_l1index(l1index);
-    ksReadyQueuesL2Bitmap[dom][l1index_inverted] &= !BIT!(prio & MASK!(wordRadix));
-    if ksReadyQueuesL2Bitmap[dom][l1index_inverted]==0 {
-        ksReadyQueuesL1Bitmap[dom] &= !BIT!(l1index);
+    unsafe{
+        ksReadyQueuesL2Bitmap[dom][l1index_inverted] &= !BIT!(prio & MASK!(wordRadix));
+        if ksReadyQueuesL2Bitmap[dom][l1index_inverted]==0 {
+            ksReadyQueuesL1Bitmap[dom] &= !BIT!(l1index);
+        }
     }
 }
 
@@ -58,25 +97,19 @@ pub fn tcbSchedEnqueue(tcb:*mut tcb_t) {
         unsafe{
             dom = (*tcb).tcbDomain;
             prio = (*tcb).tcbPriority;
-        }
-        let idx:word_t = ready_queues_index(dom, prio);
-        let queue:tcb_queue_t = ksReadyQueues[idx];
+            let idx:word_t = ready_queues_index(dom, prio);
+            let queue:tcb_queue_t = ksReadyQueues[idx];
 
-        if queue.end==0 as (*mut tcb_t){
-            queue.end = tcb;
-            addToBitmap(0, dom, prio);
-        } else {
-            unsafe{
+            if queue.end==0 as (*mut tcb_t){
+                queue.end = tcb;
+                addToBitmap(0, dom, prio);
+            } else {
                 (*queue.head).tcbSchedPrev = tcb;
             }
-        }
-        unsafe{
             (*tcb).tcbSchedPrev = 0u64 as (*mut tcb);
             (*tcb).tcbSchedNext = queue.head;
-        }
-        queue.head = tcb;
-        ksReadyQueues[idx] = queue;
-        unsafe{
+            queue.head = tcb;
+            ksReadyQueues[idx] = queue;
             thread_state_ptr_set_tcbQueued((*tcb).tcbState, 1);
         }
     }
@@ -93,22 +126,18 @@ pub fn tcbSchedAppend(tcb:*mut tcb_t){
         unsafe{
             dom = (*tcb).tcbDomain;
             prio = (*tcb).tcbPriority;
-        }
-        let idx:word_t = ready_queues_index(dom, prio);
-        let queue:tcb_queue_t = ksReadyQueues[idx];
-        if queue.head == 0 as (*mut tcb_t) {
-            queue.head = tcb;
-            addToBitmap(0, dom, prio);
-        } else {
-            (*queue.end).tcbSchedNext = tcb;
-        }
-        unsafe{
-            (*tcb).tcbSchedPrev = queue.end;
-            (*tcb).tcbSchedNext = 0 as (*mut tcb);
-        }
-        queue.end = tcb;
-        ksReadyQueues[idx] = queue;
-        unsafe{
+            let idx:word_t = ready_queues_index(dom, prio);
+            let queue:tcb_queue_t = ksReadyQueues[idx];
+            if queue.head == 0 as (*mut tcb_t) {
+                queue.head = tcb;
+                addToBitmap(0, dom, prio);
+            } else {
+                (*queue.end).tcbSchedNext = tcb;
+            }
+                (*tcb).tcbSchedPrev = queue.end;
+                (*tcb).tcbSchedNext = 0 as (*mut tcb);
+            queue.end = tcb;
+            ksReadyQueues[idx] = queue;
             thread_state_ptr_set_tcbQueued((*tcb).tcbState, 1);
         }
     }
@@ -127,22 +156,20 @@ pub fn tcbSchedDequeue(tcb: *mut tcb_t){
             prio = (*tcb).tcbPriority;
         }
         let idx:word_t = ready_queues_index(dom, prio);
-        let queue:tcb_queue_t = ksReadyQueues[idx];
         unsafe{
+            let queue:tcb_queue_t = ksReadyQueues[idx];
             if (*tcb).tcbSchedPrev != 0 as (*mut tcb) {
                 (*(*tcb).tcbSchedPrev).tcbSchedNext = (*tcb).tcbSchedNext;
             } else {
-                    queue.head = (*tcb).tcbSchedNext;
-                    if (*tcb).tcbSchedNext == 0 as (*mut tcb) {
-                        removeFromBitmap(0, dom, prio);
-                    }
+                queue.head = (*tcb).tcbSchedNext;
+                if (*tcb).tcbSchedNext == 0 as (*mut tcb) {
+                    removeFromBitmap(0, dom, prio);
                 }
             }
-        }
-        ksReadyQueues[idx] = queue;
-        unsafe{
+            ksReadyQueues[idx] = queue;
             thread_state_ptr_set_tcbQueued((*tcb).tcbState, false);
         }
+    }
 }
 
 pub fn tcbEPAppend(tcb: *mut tcb_t, queue: tcb_queue_t) -> tcb_queue_t {
@@ -185,7 +212,7 @@ pub fn getExtraCPtr(bufferPtr:*mut word_t, i:word_t) {
     }
 }
 
-pub fn setExtraBadge(buffer:*mut word_t, badge:word_t, i:word_t){
+pub fn setExtraBadge(bufferPtr:*mut word_t, badge:word_t, i:word_t){
     unsafe{
         bufferPtr[120 + 2 + i] = badge;
     }
@@ -212,7 +239,7 @@ pub fn deleteCallerCap(reciever:*mut tcb_t) {
     cteDeleteOne(callerSlot);
 }
 
-static mut current_extra_caps:extra_caps_t;
+static mut current_extra_caps:extra_caps_t = 0;
 
 pub fn lookupExtraCaps(thread:*mut tcb_t, bufferPtr:*mut word_t, info:seL4_MessageInfo_t) -> exception_t{
     let mut lu_ret:lookupSlot_raw_ret_t;
@@ -221,7 +248,9 @@ pub fn lookupExtraCaps(thread:*mut tcb_t, bufferPtr:*mut word_t, info:seL4_Messa
     let mut length:word_t;
 
     if bufferPtr == 0 as *mut word_t {
-        current_extra_caps.excaprefs[0] = 0 as (*mut cte_t);
+        unsafe{
+            current_extra_caps.excaprefs[0] = 0 as (*mut cte_t);
+        }
         return EXCEPTION_NONE;
     }
 
@@ -235,13 +264,17 @@ pub fn lookupExtraCaps(thread:*mut tcb_t, bufferPtr:*mut word_t, info:seL4_Messa
             current_fault = seL4_Fault_CapFault_new(cptr, false);
             return lu_ret.status;
         }
-        current_extra_caps.excaprefs[i] = lu_ret.slot;
+        unsafe{
+            current_extra_caps.excaprefs[i] = lu_ret.slot;
+        }
 
         i+=1;
     }
 
     if i<3 {
-        current_extra_caps.excaprefs[i] = 0 as (*mut cte_t);
+        unsafe{
+            current_extra_caps.excaprefs[i] = 0 as (*mut cte_t);
+        }
     }
     EXCEPTION_NONE
 }
@@ -249,7 +282,7 @@ pub fn lookupExtraCaps(thread:*mut tcb_t, bufferPtr:*mut word_t, info:seL4_Messa
 pub fn copyMRs(sender:*mut tcb_t, sendBuf:*mut word_t, reciever:*mut tcb_t, recvBuf:*mut word_t, n:word_t) -> word_t {
     let mut i:word_t = 0;
     while i<n && i<4 {
-        setRegister(receiver, msgRegisters[i], getRegister(sender, msgRegisters[i]));
+        setRegister(reciever, msgRegisters[i], getRegister(sender, msgRegisters[i]));
 
         i+=1;
     }
@@ -268,7 +301,7 @@ pub fn copyMRs(sender:*mut tcb_t, sendBuf:*mut word_t, reciever:*mut tcb_t, recv
     i
 }
 
-pub fn invokeSetTLSBase(thread:*mut tcb_t, tls_base:word_t) -> exception_t{
+pub unsafe fn invokeSetTLSBase(thread:*mut tcb_t, tls_base:word_t) -> exception_t{
     setRegister(thread, TLS_BASE, tls_base);
     if thread == ksCurThread {
         rescheduleRequired();
@@ -276,81 +309,155 @@ pub fn invokeSetTLSBase(thread:*mut tcb_t, tls_base:word_t) -> exception_t{
     EXCEPTION_NONE
 }
 
-pub fn decodeSetTLSBase(cap:cap_t, length:word_t, buffer:*mut word_t) -> exception_t {
+pub unsafe fn decodeSetTLSBase(cap:cap_t, length:word_t, buffer:*mut word_t) -> exception_t {
     let mut tls_base:word_t;
     if length<1 {
         // userError("TCB SetTLSBase: Truncated message.");
-        current_syscall_error.type = seL4_TruncatedMessage;
+        current_syscall_error.error_type = seL4_TruncatedMessage;
         return EXCEPTION_SYSCALL_ERROR;
     }
     tls_base = getSyscallArg(0, buffer);
 
-    setThreadState(NODE_STATE(ksCurThread), ThreadState_Restart);
-    invokeSetTLSBase(TCB_PTR(cap_thread_cap_get_capTCBPtr(cap)), tls_base)
+    setThreadState(ksCurThread, ThreadState_Restart);
+    invokeSetTLSBase(cap_thread_cap_get_capTCBPtr(cap) as *mut tcb_t, tls_base)
 }
 
-pub fn decodeTCBInvocation(invLabel:word_t, length:word_t, cap:cap_t, slot:*mut cte_t, call:word_t, buffer:*word_t) -> exception_t {
-    if invLabel == 
-}
-
-
-exception_t decodeTCBInvocation(word_t invLabel, word_t length, cap_t cap,
-                                cte_t *slot, bool_t call, word_t *buffer)
-{
-    /* Stall the core if we are operating on a remote TCB that is currently running */
-    SMP_COND_STATEMENT(remoteTCBStall(TCB_PTR(cap_thread_cap_get_capTCBPtr(cap)));)
-
-    switch (invLabel) {
-    case TCBReadRegisters:
-        /* Second level of decoding */
+pub fn decodeTCBInvocation(invLabel:word_t, length:word_t, cap:cap_t, slot:*mut cte_t, call:word_t, buffer:*mut word_t) -> exception_t {
+    if invLabel == TCBReadRegisters{
         return decodeReadRegisters(cap, length, call, buffer);
-
-    case TCBWriteRegisters:
+    } else
+    if invLabel == TCBWriteRegisters{
         return decodeWriteRegisters(cap, length, buffer);
-
-    case TCBCopyRegisters:
+    } else
+    if invLabel == TCBCopyRegisters{
         return decodeCopyRegisters(cap, length, buffer);
-
-    case TCBSuspend:
-        /* Jump straight to the invoke */
-        setThreadState(NODE_STATE(ksCurThread), ThreadState_Restart);
-        return invokeTCB_Suspend(
-                   TCB_PTR(cap_thread_cap_get_capTCBPtr(cap)));
-
-    case TCBResume:
-        setThreadState(NODE_STATE(ksCurThread), ThreadState_Restart);
-        return invokeTCB_Resume(
-                   TCB_PTR(cap_thread_cap_get_capTCBPtr(cap)));
-
-    case TCBConfigure:
+    } else
+    if invLabel == TCBSuspend{
+        unsafe{
+            setThreadState(ksCurThread, ThreadState_Restart);
+        }
+        return invokeTCB_Suspend(cap_thread_cap_get_capTCBPtr(cap) as *mut tcb_t);
+    } else
+    if invLabel == TCBResume{
+        unsafe{
+            setThreadState(ksCurThread, ThreadState_Restart);
+        }
+        return invokeTCB_Suspend(cap_thread_cap_get_capTCBPtr(cap) as *mut tcb_t);
+    } else
+    if invLabel == TCBConfigure{
         return decodeTCBConfigure(cap, length, slot, buffer);
-
-    case TCBSetPriority:
+    } else
+    if invLabel == TCBSetPriority{
         return decodeSetPriority(cap, length, buffer);
-
-    case TCBSetMCPriority:
+    } else
+    if invLabel == TCBSetMCPriority{
         return decodeSetMCPriority(cap, length, buffer);
-
-    case TCBSetSchedParams:
+    } else
+    if invLabel == TCBSetSchedParams{
         return decodeSetSchedParams(cap, length, buffer);
-    case TCBSetIPCBuffer:
+    } else
+    if invLabel == TCBSetIPCBuffer{
         return decodeSetIPCBuffer(cap, length, slot, buffer);
-
-    case TCBSetSpace:
+    } else
+    if invLabel == TCBSetSpace{
         return decodeSetSpace(cap, length, slot, buffer);
-
-    case TCBBindNotification:
+    } else
+    if invLabel == TCBBindNotification{
         return decodeBindNotification(cap);
-
-    case TCBUnbindNotification:
+    } else
+    if invLabel == TCBUnbindNotification{
         return decodeUnbindNotification(cap);
-    case TCBSetTLSBase:
-        return decodeSetTLSBase(cap, length, buffer);
-
-    default:
-        /* Haskell: "throw IllegalOperation" */
-        userError("TCB: Illegal operation.");
-        current_syscall_error.type = seL4_IllegalOperation;
+    } else
+    if invLabel == TCBSetTLSBase{
+        unsafe{
+            return decodeSetTLSBase(cap, length, buffer);
+        }
+    } else {
+        // println!("TCB: Illegal operation.");
+        unsafe{
+            current_syscall_error.error_type = seL4_IllegalOperation;
+        }
         return EXCEPTION_SYSCALL_ERROR;
     }
+    EXCEPTION_SYSCALL_ERROR
 }
+
+pub enum CopyRegistersFlags {
+    CopyRegisters_suspendSource = 0,
+    CopyRegisters_resumeTarget = 1,
+    CopyRegisters_transferFrame = 2,
+    CopyRegisters_transferInteger = 3
+}
+
+pub fn decodeCopyRegisters(cap:cap_t, length:word_t, buffer:*mut word_t) -> exception_t {
+    let mut transferArch:word_t;
+    let mut srcTCB:*mut tcb_t;
+    let mut source_cap:cap_t;
+    let mut flags:word_t;
+    
+    unsafe{
+        if length<1 || current_extra_caps.excaprefs[0] == 0{
+            // println!("TCB CopyRegisters: Truncated message.");
+            current_syscall_error.error_type = seL4_TruncatedMessage;
+            return EXCEPTION_SYSCALL_ERROR;
+        }
+    }
+    flags = getSyscallArg(0, buffer);
+
+    transferArch = Arch_decodeTransfer(flags >> 8);
+    unsafe{
+        source_cap = (*current_extra_caps.excaprefs[0]).cap;
+    }
+
+    if cap_get_capType(source_cap) == cap_thread_cap{
+        srcTCB = cap_thread_cap_get_capTCBPtr(source_cap) as *mut tcb_t;
+    } else {
+        // println!("TCB CopyRegisters: Invalid source TCB.");
+        current_syscall_error.error_type = seL4_TruncatedMessage;
+        return EXCEPTION_SYSCALL_ERROR;
+    }
+    unsafe{
+        setThreadState(ksCurThread, ThreadState_Restart);
+    }
+    invokeTCB_CopyRegisters(cap_thread_cap_get_capTCBPtr(cap) as *mut tcb_t, srcTCB, flags & (1u64<<(CopyRegisters_suspendSource)), flags & (1u64<<(CopyRegisters_resumeTarget)),
+        flags & (1u64<<(CopyRegisters_transferFrame)),
+        flags & (1u64<<(CopyRegisters_transferInteger)),
+        transferArch)
+}
+
+//invocation.h
+
+pub enum invocation_label {
+    InvalidInvocation,
+    UntypedRetype,
+    TCBReadRegisters,
+    TCBWriteRegisters,
+    TCBCopyRegisters,
+    TCBConfigure,
+    TCBSetPriority,
+    TCBSetMCPriority,
+    TCBSetSchedParams,
+    TCBSetIPCBuffer,
+    TCBSetSpace,
+    TCBSuspend,
+    TCBResume,
+    TCBBindNotification,
+    TCBUnbindNotification,
+    TCBSetTLSBase,
+    CNodeRevoke,
+    CNodeDelete,
+    CNodeCancelBadgedSends,
+    CNodeCopy,
+    CNodeMint,
+    CNodeMove,
+    CNodeMutate,
+    CNodeRotate,
+    CNodeSaveCaller,
+    IRQIssueIRQHandler,
+    IRQAckIRQ,
+    IRQSetIRQHandler,
+    IRQClearIRQHandler,
+    DomainSetSet,
+    nInvocationLabels
+}
+// not in this file, but for convenience we add it here

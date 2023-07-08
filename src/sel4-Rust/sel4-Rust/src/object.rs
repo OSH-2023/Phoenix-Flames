@@ -115,6 +115,24 @@ pub enum _thread_state{
 }
 pub type _thread_state_t = word_t;
 
+pub enum tcb_cnode_index {
+    /* CSpace root */
+    tcbCTable = 0,
+
+    /* VSpace root */
+    tcbVTable = 1,
+    /* Reply cap slot */
+    tcbReply = 2,
+
+    /* TCB of most recent IPC sender */
+    tcbCaller = 3,
+
+    /* IPC buffer cap slot */
+    tcbBuffer = 4,
+    tcbCNodeEntries
+}
+
+
 // 3. from arch/object/structures_gen.h
 #[derive(Clone,Copy)]
 pub struct mdb_node {
@@ -404,4 +422,18 @@ pub fn cap_cnode_cap_get_capCNodePtr( cap:cap_t) ->u64{
         ret |= 0xffff000000000000;
     }
     return ret;
+}
+
+#[inline(always)]
+pub fn thread_state_ptr_get_tsType(thread_state_ptr:*mut thread_state_t) -> u64 {
+    unsafe{
+        let ret:u64 = ((*thread_state_ptr).words[0] & 0xfu64) >> 0;
+    }
+}
+
+//from constants.h
+pub enum priorityConstants {
+    seL4_InvalidPrio = -1,
+    seL4_MinPrio = 0,
+    seL4_MaxPrio = 255,
 }

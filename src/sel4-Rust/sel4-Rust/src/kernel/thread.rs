@@ -256,8 +256,8 @@ pub fn messageInfoFromWord(w: word_t) -> seL4_MessageInfo_t {
 }
 
 pub type register_t = u32;
-const msgInfoRegister: u32 = 1;
-const badgeRegister: u32 = 0;
+pub const msgInfoRegister: u32 = 1;
+pub const badgeRegister: u32 = 0;
 const EXCEPTION_NONE: u64 = 0;
 use core::intrinsics::unlikely;
 use core::ptr::null_mut;

@@ -15,6 +15,8 @@ use crate::object::_thread_state::ThreadState_Restart;
 use crate::object::_thread_state::ThreadState_Inactive;
 use crate::object::notification_state::NtfnState_Active;
 use crate::object::{notification_ptr_set_state,notification_ptr_get_state,notification_ptr_get_ntfnQueue_head,notification_ptr_set_ntfnQueue_head,notification_ptr_get_ntfnQueue_tail,notification_ptr_set_ntfnQueue_tail};
+use crate::kernel::thread::*;
+use crate::kernel::tcb::*;
 
 
 pub fn ntfn_ptr_get_queue(ntfnPtr: *mut notification_t) -> tcb_queue_t {
@@ -38,8 +40,10 @@ pub fn sendSignal(ntfnPtr: *mut notification_t, badge: word_t) {
             if unsafe{thread_state_ptr_get_tsType((*tcb).tcbState) == ThreadState_BlockedOnReceive} {
                 cancleIPC(tcb);//from endpoint.c
                 setThreadState(tcb, ThreadState_Running);//from thread.c
-                setRegister(tcb, /*badgeRegister*/9, badge);//from thread.c
-                possibleSwitchTo(tcb);//from thread.c
+                unsafe{
+                    setRegister(tcb, /*badgeRegister*/9, badge);//from thread.c
+                    possibleSwitchTo(tcb);//from thread.c
+                }
             } else {
                 ntfn_set_active(ntfnPtr, badge);
             }
@@ -58,8 +62,10 @@ pub fn sendSignal(ntfnPtr: *mut notification_t, badge: word_t) {
             notification_ptr_set_state(ntfnPtr, NtfnState_Idle);
         }
         setThreadState(dest, ThreadState_Running);
-        setRegister(dest, badgeRegister, badge);
-        possibleSwitchTo(dest);
+        unsafe{
+            setRegister(dest, badgeRegister, badge);
+            possibleSwitchTo(dest);
+        }
     }else
     if tmp == NtfnState_Active as u64 {
         let badge2:word_t = notification_ptr_get_ntfnMsgIdentifier(ntfnPtr) | badge;
@@ -87,7 +93,9 @@ pub fn receiveSignal(thread: *mut tcb_t, cap: cap_t, isBlocking: word_t) {
         }
     }else
     if tmp == NtfnState_Active as u64{
-        setRegister(thread, badgeRegister, notification_ptr_get_ntfnMsgIdentifier(ntfnPtr));
+        unsafe{
+            setRegister(thread, badgeRegister, notification_ptr_get_ntfnMsgIdentifier(ntfnPtr));
+        }
         notification_ptr_set_state(ntfnPtr, NtfnState_Idle as u64);
 
     }
@@ -132,7 +140,9 @@ pub fn completeSignal(ntfnPtr:*mut notification_t, tcb:*mut tcb_t) {
     
     if tcb as u64!=0 && notification_ptr_get_state(ntfnPtr) == NtfnState_Active as u64{
         badge = notification_ptr_get_ntfnMsgIdentifier(ntfnPtr);
-        setRegister(tcb, badgeRegister, badge);
+        unsafe{
+            setRegister(tcb, badgeRegister, badge);
+        }
         notification_ptr_set_state(ntfnPtr, NtfnState_Idle as u64);       
     } else {
         panic!("tried to complete signal with inactive notification object");// here we use the macro panic, which we might need to define later
