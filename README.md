@@ -2,6 +2,8 @@ We are
 # Phoenix-Flames
 A group of OSH course
 
+<img src="docs/src/symbol.png" alt="symol" style="zoom: 33%;" />
+
 members:
 * 邓博文
 * 蒋文浩
